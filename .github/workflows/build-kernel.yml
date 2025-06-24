@@ -1,0 +1,273 @@
+name: Build-Kernel-6.1-LTS
+permissions:
+  contents: write
+  actions: write
+
+on:
+  workflow_call:
+    inputs:
+      revision:
+        required: false
+        type: string
+      version:
+        required: false
+        type: string
+
+jobs:
+  build-kernel-sukisu-susfs:
+    runs-on: ubuntu-latest
+    env:
+      KBUILD_BUILD_USER: "DawnFz"
+      KBUILD_BUILD_HOST: "Github"
+      CONFIG: "android14-6.1-LTS"
+      GOOGLE_SOURCE_URL: "https://android.googlesource.com"
+
+    steps:
+      - name: 初始化构建空间
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          swap-size-mb: 8192
+          remove-dotnet: "true"
+          remove-android: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+
+      - name: 同步仓库资源
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: 下载编译工具
+        run: |
+          sudo apt update && sudo apt upgrade -y && sudo apt install -y python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
+          git clone $GOOGLE_SOURCE_URL/kernel/prebuilts/build-tools -b main-kernel --depth 1 kernel-build-tools
+
+      - name: 配置环境变量
+        run: |
+          CHASH=$(date +%s%N | sha1sum | cut -c1-12)
+          echo "本次构建哈希:$CHASH"
+
+          echo "配置环境变量..."
+          echo "AVBTOOL=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/bin/avbtool" >> $GITHUB_ENV
+          echo "BOOTHASH=$CHASH" >> $GITHUB_ENV
+          TIMESTAMP=$(date -u '+%a %b %e %T %Z %Y')
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+
+      - name: 克隆外部依赖
+        run: |
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b --depth 1 gki-android14-6.1
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
+          git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git kernel-patch --depth 1
+          cd SukiSU_patch
+          cp -r AnyKernel3 ../
+
+      - name: 同步内核源码
+        run: |
+          mkdir -p ./git-repo
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
+          chmod a+rx ./git-repo/repo
+          mkdir -p "$CONFIG"
+          cd "$CONFIG"
+          git clone https://github.com/LineageOS/android_prebuilts_gcc_linux-x86_aarch64_aarch64-linux-gnu-6.4.1.git gcc
+          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u $GOOGLE_SOURCE_URL/kernel/manifest -b common-android14-6.1-lts --repo-rev=v2.16
+          $GITHUB_WORKSPACE/./git-repo/repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
+
+      - name: 下载 Clang 21
+        run: |
+          curl -o clang-r563880.tar.gz $GOOGLE_SOURCE_URL/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel/clang-r563880.tar.gz
+          echo "Unzip clang-r563880"
+          sudo mkdir -p $GITHUB_WORKSPACE/clang-r563880
+          sudo tar -xzf clang-r563880.tar.gz -C $GITHUB_WORKSPACE/clang-r563880
+          sudo rm -rf ./clang-r563880.tar.gz
+          
+          cd "$CONFIG"
+          sudo mv -f $GITHUB_WORKSPACE/clang-r563880 ./prebuilts/clang/host/linux-x86/
+      
+      - name: 添加 SukiSU
+        run: |
+          echo "开始安装 SukiSU Ultra..."
+          cd "$CONFIG"
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-1.5.8
+          
+      - name: 应用内核补丁
+        run: |
+          cd "$CONFIG"
+          # Copy SUSFS patches
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          cd ./common
+          patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
+          echo "SukiSU Ultra & SUSFS patches complete......"
+
+          # 应用 LTS 分支补丁
+          sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/kernel-common/* ./
+          echo "6.1-lts patches complete..."
+
+          echo "Applying hooks for SukiSU..."
+          cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
+          patch -p1 -F 3 < syscall_hooks.patch
+          echo "syscall_hooks patches complete..."
+
+          cp ../../SukiSU_patch/69_hide_stuff.patch ./
+          patch -p1 -F 3 < 69_hide_stuff.patch
+          echo "69_hide_stuff patches complete..."
+
+          cp -r ../../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
+          cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
+          cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
+          
+          cp ../../SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./
+          patch -p1 -F 3 < lz4kd.patch || true
+          echo "lz4kd patches complete..."
+
+      - name: 添加内核配置
+        run: |
+          echo "Add zram configuration settings..."
+          CONFIG_FILE="$CONFIG/common/arch/arm64/configs/gki_defconfig"
+
+          if grep -q "CONFIG_ZSMALLOC" -- "$CONFIG_FILE"; then
+              sed -i 's/CONFIG_ZSMALLOC=m/CONFIG_ZSMALLOC=y/g' "$CONFIG_FILE"
+          else
+              echo "CONFIG_ZSMALLOC=y" >> "$CONFIG_FILE"
+          fi
+
+          sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
+          sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' "$CONFIG/common/modules.bzl"
+          echo "CONFIG_MODULE_SIG_FORCE=n" >> "$CONFIG_FILE"
+
+          if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
+            echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
+            echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
+          fi
+
+          cd "$CONFIG"
+          echo "Add KSU configuration settings..."
+          echo "CONFIG_KSU=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_MANUAL_HOOK=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          echo "Add additional tmpfs config settings..."
+          echo "CONFIG_TMPFS_XATTR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          echo "Add additional config settings..."
+          echo "CONFIG_IP_NF_TARGET_TTL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP6_NF_TARGET_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_IP6_NF_MATCH_HL=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          echo "Add BBR config settings..."
+          echo "CONFIG_TCP_CONG_ADVANCED=y" >> ./common/arch/arm64/configs/gki_defconfig 
+          echo "CONFIG_TCP_CONG_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_NET_SCH_FQ=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_BIC=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_TCP_CONG_HTCP=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_DEFAULT_BBR=y" >> ./common/arch/arm64/configs/gki_defconfig
+
+          echo "Add SUSFS configuration settings..."
+          echo "CONFIG_KSU_SUSFS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> ./common/arch/arm64/configs/gki_defconfig
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> ./common/arch/arm64/configs/gki_defconfig
+      
+          echo "Remove check_defconfig..."
+          sed -i 's/check_defconfig//' ./common/build.config.gki
+
+      - name: 设置内核信息
+        run: |
+          cd "$CONFIG"
+          SUBLEVEL=$(awk -F' = ' '/^SUBLEVEL / {print $2}' ./common/Makefile)
+          if [ ! -z ${{ inputs.version }} ]; then
+            echo "目标内核版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}"
+            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}" >> $GITHUB_ENV
+            sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'-'"${{ inputs.version }}"'"|' ./common/scripts/setlocalversion
+          else
+            echo "未配置内核版本号,将使用默认版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH"
+            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH" >> $GITHUB_ENV
+            sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'"|' ./common/scripts/setlocalversion
+          fi
+          
+          perl -pi -e 's/"\$\{LINUX_COMPILE_BY\}"/"\Q$ENV{KBUILD_BUILD_USER}\E"/g' ./common/scripts/mkcompile_h
+          perl -pi -e 's/"\$\{LINUX_COMPILE_HOST\}"/"\Q$ENV{KBUILD_BUILD_HOST}\E"/g' ./common/scripts/mkcompile_h
+          echo "设置内核构建用户及主机:$KBUILD_BUILD_USER@$KBUILD_BUILD_HOST"
+
+          TIMESTAMP_ESCAPED=$(echo "$TIMESTAMP" | sed 's|/|\\/|g; s| |\\ |g')
+          sed -i "s|\$(build-timestamp)|${TIMESTAMP_ESCAPED}|g" ./common/init/Makefile
+          echo "设置内核构建时间:$TIMESTAMP"
+
+          sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' ./common/BUILD.bazel
+          rm -rf ./common/android/abi_gki_protected_exports_*
+          sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
+          sed -E -i '/^CONFIG_LOCALVERSION=/ s/(.*)"$/\1"/' ./common/arch/arm64/configs/gki_defconfig
+
+      - name: 编译内核
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 30
+          max_attempts: 3
+          retry_on: timeout
+          command: |
+            set -e
+            cd "$CONFIG"
+            sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' common/build.config.gki.aarch64
+            sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' common/build.config.gki.aarch64
+            sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' common/build.config.gki.aarch64
+            sed -i 's/-dirty//' common/scripts/setlocalversion
+            cd common
+
+            export PATH="$GITHUB_WORKSPACE/$CONFIG/prebuilts/clang/host/linux-x86/clang-r563880/bin:$PATH"
+            export PATH="$GITHUB_WORKSPACE/$CONFIG/gcc/bin:$PATH"
+            export PATH="$GITHUB_WORKSPACE/$CONFIG/prebuilts/kernel-build-tools/linux-x86/bin:$PATH"
+
+            echo "--- Clang Version ---"
+            clang --version
+            echo "--- GCC Version ---"
+            aarch64-linux-gnu-gcc -v
+
+            COMMON_MAKE_PARAMS=(
+              -j$(nproc --all)
+              O=out
+              ARCH=arm64
+              LLVM=1
+              CROSS_COMPILE=aarch64-linux-gnu-
+              -s
+            )
+
+            echo "--- Running make gki_defconfig ---"
+            make "${COMMON_MAKE_PARAMS[@]}" gki_defconfig || { echo "make defconfig failed"; exit 1; }
+            make "${COMMON_MAKE_PARAMS[@]}" "${BUILD_TARGETS[@]}" || { echo "make failed"; exit 1; }
+
+            mkdir -p ../bazel-bin/common/kernel_aarch64/
+            cp ./out/arch/arm64/boot/Image* ../bazel-bin/common/kernel_aarch64/
+      
+      - name: 打包编译产物
+        run: |
+          echo "正在打包编译产物..."
+          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./
+          cd ./AnyKernel3
+          ZIP_NAME="$BOOTNAME.zip"
+          echo "Creating zip file: $ZIP_NAME..."
+          mv ../Image ./Image
+          zip -r "../$ZIP_NAME" ./*
+          rm ./Image
+
+      - name: 上传产出文件
+        uses: actions/upload-artifact@v4
+        with:
+          name: SukiSU-kernel-${{ env.CONFIG }}
+          path: |
+            *.zip
