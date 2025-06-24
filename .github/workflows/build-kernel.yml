@@ -280,8 +280,7 @@ jobs:
         run: |
           echo "正在打包编译产物..."
           cp ./$CONFIG/common/out/arch/arm64/boot/Image ./AnyKernel3/ 
-          cd ./AnyKernel3
-          zip -r "../$BOOTNAME.zip" ./*
+          zip -r "./$BOOTNAME.zip" ./AnyKernel3/*
 
       - name: 上传产出文件
         uses: actions/upload-artifact@v4
