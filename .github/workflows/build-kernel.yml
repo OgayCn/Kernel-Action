@@ -34,11 +34,6 @@ jobs:
           remove-haskell: "true"
           remove-codeql: "true"
 
-      - name: 同步仓库资源
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
       - name: 下载编译工具
         run: |
           sudo apt update && sudo apt upgrade -y && sudo apt install -y python3 git curl build-essential libssl-dev bison flex libelf-dev dwarves
@@ -57,9 +52,9 @@ jobs:
 
       - name: 克隆外部依赖
         run: |
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b --depth 1 gki-android14-6.1
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1 --depth 1
           git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
-          git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git kernel-patch --depth 1
+          git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
           cd SukiSU_patch
           cp -r AnyKernel3 ../
 
