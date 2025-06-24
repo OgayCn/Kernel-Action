@@ -282,7 +282,6 @@ jobs:
           cp ./$CONFIG/common/out/arch/arm64/boot/Image ./AnyKernel3/ 
           cd ./AnyKernel3
           zip -r "../$BOOTNAME.zip" ./*
-          rm ./AnyKernel3/Image
 
       - name: 上传产出文件
         uses: actions/upload-artifact@v4
