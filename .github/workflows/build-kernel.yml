@@ -17,6 +17,10 @@ jobs:
   build-kernel-sukisu-susfs:
     runs-on: ubuntu-latest
     env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      CCACHE_MAXSIZE: "8G"
       KBUILD_BUILD_USER: "DawnFz"
       KBUILD_BUILD_HOST: "Github"
       CONFIG: "android14-6.1-LTS"
@@ -37,21 +41,11 @@ jobs:
         run: |
           CHASH=$(date +%s%N | sha1sum | cut -c1-12)
           echo "本次构建哈希:$CHASH"
-
-          echo "配置环境变量..."
           echo "CCACHE_DIR=$HOME/.ccache_6.1.lts" >> $GITHUB_ENV
           echo "AVBTOOL=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/bin/avbtool" >> $GITHUB_ENV
           echo "BOOTHASH=$CHASH" >> $GITHUB_ENV
           TIMESTAMP=$(date -u '+%a %b %e %T %Z %Y')
           echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
-
-      - name: 缓存 APT 包
-        uses: actions/cache@v3
-        with:
-          path: /var/lib/apt/lists
-          key: ${{ runner.os }}-apt-${{ hashFiles('.github/workflows/build-kernel.yml') }}
-          restore-keys: |
-            ${{ runner.os }}-apt-
 
       - name: 安装环境依赖
         run: |
@@ -59,12 +53,10 @@ jobs:
             sudo apt update -qq
           fi
           sudo apt install -y --no-install-recommends \
-            python3 git curl ccache libelf-dev \
-            build-essential flex bison libssl-dev \
-            libncurses-dev liblz4-tool zlib1g-dev \
-            libxml2-utils rsync unzip
-
-          ccache --version
+          python3 git curl ccache libelf-dev \
+          build-essential flex bison libssl-dev \
+          libncurses-dev liblz4-tool zlib1g-dev \
+          libxml2-utils rsync unzip
 
       - name: 载入 ccache 缓存
         uses: actions/cache@v3
@@ -77,16 +69,10 @@ jobs:
 
       - name: 初始化 cceche
         run: |
-          export CCACHE_COMPILERCHECK="%compiler% -dumpmachine; %compiler% -dumpversion"
-          export CCACHE_NOHASHDIR="true"
-          export CCACHE_HARDLINK="true"
-          export CCACHE_DIR="${{ env.CCACHE_DIR }}"
-          export CCACHE_MAXSIZE="8G"
-
           INIT_FLAG="$CCACHE_DIR/.ccache_initialized"
           if command -v ccache >/dev/null 2>&1; then
             if [ ! -f "$INIT_FLAG" ]; then
-              echo "初始化 ccache ($CCACHE_DIR)..."
+              echo "init ccache ($CCACHE_DIR)..."
               mkdir -p "$CCACHE_DIR"
               ccache -M "$CCACHE_MAXSIZE"
               touch "$INIT_FLAG"
@@ -260,21 +246,18 @@ jobs:
           retry_on: timeout
           command: |
             set -e
-            cd "$CONFIG"
-            sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' common/build.config.gki.aarch64
-            sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' common/build.config.gki.aarch64
-            sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' common/build.config.gki.aarch64
-            sed -i 's/-dirty//' common/scripts/setlocalversion
+            cd "$CONFIG/common"
 
-            export PATH="/usr/lib/ccache:$PATH"
+            # 使用 Clang 21 编译
             export PATH="$GITHUB_WORKSPACE/$CONFIG/prebuilts/clang/host/linux-x86/clang-r563880/bin:$PATH"
+            
+            # 使用 ccache 缓存加速编译
+            export PATH="/usr/lib/ccache:$PATH"
             export CCACHE_COMPILERCHECK="%compiler% -dumpmachine; %compiler% -dumpversion"
             export CCACHE_NOHASHDIR="true"
             export CCACHE_HARDLINK="true"
             export CCACHE_DIR="${{ env.CCACHE_DIR }}"
             export CCACHE_MAXSIZE="8G"
-
-            cd common
 
             COMMON_MAKE_PARAMS=(
               -j$(nproc --all)
@@ -288,25 +271,18 @@ jobs:
               LD=ld.lld
               HOSTLD=ld.lld
               KCFLAGS+=-O2
-              -s
             )
   
             make "${COMMON_MAKE_PARAMS[@]}" gki_defconfig || { echo "make defconfig failed"; exit 1; }
             make "${COMMON_MAKE_PARAMS[@]}" "${BUILD_TARGETS[@]}" || { echo "make failed"; exit 1; }
-
-            mkdir -p ../bazel-bin/common/kernel_aarch64/
-            cp ./out/arch/arm64/boot/Image* ../bazel-bin/common/kernel_aarch64/
       
       - name: 打包编译产物
         run: |
           echo "正在打包编译产物..."
-          cp ./$CONFIG/bazel-bin/common/kernel_aarch64/Image ./
+          cp ./$CONFIG/common/out/arch/arm64/boot/Image ./AnyKernel3/ 
           cd ./AnyKernel3
-          ZIP_NAME="$BOOTNAME.zip"
-          echo "Creating zip file: $ZIP_NAME..."
-          mv ../Image ./Image
-          zip -r "../$ZIP_NAME" ./*
-          rm ./Image
+          zip -r "../$BOOTNAME.zip" ./*
+          rm ./AnyKernel3/Image
 
       - name: 上传产出文件
         uses: actions/upload-artifact@v4
