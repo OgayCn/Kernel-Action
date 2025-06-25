@@ -101,7 +101,7 @@ jobs:
       - name: 下载 Clang 21
         run: |
           CLANG_LINK=$(curl -sL https://raw.githubusercontent.com/ZyCromerZ/Clang/main/Clang-main-link.txt)
-          curl -o clang-21.tar.gz "$CLANG_LINK"
+          curl -L -o clang-21.tar.gz "$CLANG_LINK"
 
           # 解压并清理
           echo "Unzip clang-21"
