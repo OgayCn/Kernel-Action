@@ -75,7 +75,6 @@ jobs:
           key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}
           restore-keys: |
             ccache-${{ runner.os }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-
-            ccache-${{ runner.os }}-
 
       - name: 初始化 cceche
         run: |
