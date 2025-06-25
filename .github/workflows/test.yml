@@ -24,6 +24,16 @@ jobs:
           remove-haskell: "true"
           remove-codeql: "true"
 
+      - name: 配置环境变量
+        run: |
+          CHASH=$(date +%s%N | sha1sum | cut -c1-12)
+          echo "本次构建哈希:$CHASH"
+          echo "CCACHE_DIR=$HOME/.ccache_6.1.lts" >> $GITHUB_ENV
+          echo "AVBTOOL=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/bin/avbtool" >> $GITHUB_ENV
+          echo "BOOTHASH=$CHASH" >> $GITHUB_ENV
+          TIMESTAMP=$(date -u '+%a %b %e %T %Z %Y')
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+
       - name: 拉取内核源码
         run: |
           mkdir -p ./git-repo
