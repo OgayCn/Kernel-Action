@@ -15,4 +15,4 @@
 | [Wireguard](https://zh.wikipedia.org/wiki/WireGuard) | 参考左侧 wiki 链接 |
 | [LZ4KD](https://github.com/ShirkNeko/SukiSU_patch/tree/main/other) | HUAWEI 的 zram 算法，由[云彩之枫](https://github.com/yspbwx2010)移植 |
 | [Mi-Patch](https://github.com/OgayCn/GKI-Kernel-Action) | 修复米系手机使用LTS分支带来的严重问题 |
-| [Clang21](https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel) | 使用谷歌最新Clang21编译器编译 |
+| [Clang 21](https://github.com/ZyCromerZ/Clang) | 使用 Zyc Clang21编译器编译 |

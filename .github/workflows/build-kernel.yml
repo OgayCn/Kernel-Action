@@ -37,15 +37,25 @@ jobs:
           remove-haskell: "true"
           remove-codeql: "true"
 
+      - name: 克隆外部依赖
+        run: |
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1 --depth 1
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
+          git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
+          cd SukiSU_patch
+          cp -r AnyKernel3 ../
+
       - name: 配置环境变量
+        id: set-variable
         run: |
           CHASH=$(date +%s%N | sha1sum | cut -c1-12)
           echo "本次构建哈希:$CHASH"
           echo "CCACHE_DIR=$HOME/.ccache_6.1.lts" >> $GITHUB_ENV
-          echo "AVBTOOL=$GITHUB_WORKSPACE/kernel-build-tools/linux-x86/bin/avbtool" >> $GITHUB_ENV
           echo "BOOTHASH=$CHASH" >> $GITHUB_ENV
           TIMESTAMP=$(date -u '+%a %b %e %T %Z %Y')
           echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+          CCACHE_HASH=$(git hash-object "./kernel-patch/ccache.sha")
+          echo "CCACHE_HASH=${CCACHE_HASH}" >> $GITHUB_OUTPUT
 
       - name: 安装环境依赖
         run: |
@@ -62,9 +72,9 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-6.1.lts
+          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}
           restore-keys: |
-            ccache-${{ runner.os }}-6.1.lts-
+            ccache-${{ runner.os }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-
             ccache-${{ runner.os }}-
 
       - name: 初始化 cceche
@@ -78,15 +88,6 @@ jobs:
               touch "$INIT_FLAG"
             fi
           fi
-
-      - name: 克隆外部依赖
-        run: |
-          git clone $GOOGLE_SOURCE_URL/kernel/prebuilts/build-tools -b main-kernel --depth 1 kernel-build-tools
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1 --depth 1
-          git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
-          git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
-          cd SukiSU_patch
-          cp -r AnyKernel3 ../
 
       - name: 同步内核源码
         run: |
@@ -241,7 +242,7 @@ jobs:
       - name: 编译内核
         uses: nick-fields/retry@v3
         with:
-          timeout_minutes: 30
+          timeout_minutes: 35
           max_attempts: 3
           retry_on: timeout
           command: |

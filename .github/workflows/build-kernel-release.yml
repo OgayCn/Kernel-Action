@@ -105,7 +105,7 @@ jobs:
           -> Wireguard 支持
           -> LZ4KD & BBR 支持
           -> LTS 分支小米系修复
-          -> Clang21 LLVM 编译
+          -> Zyc Clang21 编译
       
           ### 发布提交Hash:
           -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
