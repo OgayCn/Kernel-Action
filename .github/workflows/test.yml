@@ -11,6 +11,13 @@ jobs:
   build-kernel-sukisu-susfs:
     runs-on: ubuntu-latest
     env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      CCACHE_MAXSIZE: "8G"
+      KBUILD_BUILD_USER: "DawnFz"
+      KBUILD_BUILD_HOST: "Github"
+      CONFIG: "android14-6.1-LTS"
       GOOGLE_SOURCE_URL: "https://android.googlesource.com"
 
     steps:
