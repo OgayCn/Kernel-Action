@@ -100,14 +100,14 @@ jobs:
 
       - name: 下载 Clang 21
         run: |
-          curl -o clang-r563880.tar.gz $GOOGLE_SOURCE_URL/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/main-kernel/clang-r563880.tar.gz
-          echo "Unzip clang-r563880"
-          sudo mkdir -p $GITHUB_WORKSPACE/clang-r563880
-          sudo tar -xzf clang-r563880.tar.gz -C $GITHUB_WORKSPACE/clang-r563880
-          sudo rm -rf ./clang-r563880.tar.gz
-          
-          cd "$CONFIG"
-          sudo mv -f $GITHUB_WORKSPACE/clang-r563880 ./prebuilts/clang/host/linux-x86/
+          CLANG_LINK=$(curl -sL https://raw.githubusercontent.com/ZyCromerZ/Clang/main/Clang-main-link.txt)
+          curl -o clang-21.tar.gz "$CLANG_LINK"
+
+          # 解压并清理
+          echo "Unzip clang-21"
+          sudo mkdir -p $GITHUB_WORKSPACE/clang-21
+          sudo tar -xzf clang-21.tar.gz -C $GITHUB_WORKSPACE/clang-21
+          sudo rm -f clang-21.tar.gz
       
       - name: 添加 SukiSU
         run: |
@@ -249,7 +249,7 @@ jobs:
             cd "$CONFIG/common"
 
             # 使用 Clang 21 编译
-            export PATH="$GITHUB_WORKSPACE/$CONFIG/prebuilts/clang/host/linux-x86/clang-r563880/bin:$PATH"
+            export PATH="$GITHUB_WORKSPACE/clang-21/bin:$PATH"
             
             # 使用 ccache 缓存加速编译
             export PATH="/usr/lib/ccache:$PATH"
