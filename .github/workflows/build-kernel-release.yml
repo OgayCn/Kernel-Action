@@ -105,7 +105,6 @@ jobs:
           -> Wireguard 支持
           -> LZ4KD & BBR 支持
           -> LZ4-1.10(armv8优化)
-          -> 更新 ZSTD-1.7 版本
           -> LTS 分支小米系修复
           -> 开启 -O2 编译优化
           -> Zyc Clang21 编译

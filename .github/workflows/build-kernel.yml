@@ -123,10 +123,9 @@ jobs:
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
-          # Copy new lz4 & zstd patches
+          # Copy new lz4 patches
           cp ../kernel-patch/patches/001-lz4.patch ./common/
           cp ../kernel-patch/patches/lz4armv8.S ./common/lib
-          cp ../kernel-patch/patches/002-zstd.patch ./common/
 
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
@@ -154,8 +153,7 @@ jobs:
           echo "lz4kd patches complete..."
 
           git apply -p1 < 001-lz4.patch || true
-          patch -p1 < 002-zstd.patch || true
-          echo "New lz4 & zstd patches complete..."
+          echo "New lz4 patches complete..."
 
       - name: 添加内核配置
         run: |
