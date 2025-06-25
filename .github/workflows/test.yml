@@ -51,10 +51,10 @@ jobs:
           build-essential flex bison libssl-dev \
           libncurses-dev liblz4-tool zlib1g-dev \
           libxml2-utils rsync unzip
-          
+
       - name: 克隆外部依赖
         run: |
-          git clone $GOOGLE_SOURCE_URL/kernel/prebuilts/build-tools -b main-kernel --depth 1 kernel-build-tools
+          # git clone $GOOGLE_SOURCE_URL/kernel/prebuilts/build-tools -b main-kernel --depth 1 kernel-build-tools
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1 --depth 1
           git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
           git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
