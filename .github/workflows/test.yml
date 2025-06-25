@@ -24,11 +24,12 @@ jobs:
           remove-haskell: "true"
           remove-codeql: "true"
 
-      - name: 拉取 Clang 21
+      - name: 拉取内核源码
         run: |
-          mkdir kernel-clang && cd kernel-clang
-          git init
-          git remote add origin $GOOGLE_SOURCE_URL/platform/prebuilts/clang/host/linux-x86/
-          git config core.sparseCheckout true
-          echo "main-kernel/clang-r563880/*" > .git/info/sparse-checkout
-          git pull --depth=1 origin main-kernel
+          mkdir -p ./git-repo
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
+          chmod a+rx ./git-repo/repo
+          mkdir -p "$CONFIG"
+          cd "$CONFIG"
+          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 -u https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git -b refs/heads/main -m SM8650_Custom.xml
+          $GITHUB_WORKSPACE/./git-repo/repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
