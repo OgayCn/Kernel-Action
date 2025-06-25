@@ -59,7 +59,7 @@ jobs:
           git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
           git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
           git clone $GOOGLE_SOURCE_URL/kernel/manifest -b common-android14-6.1-lts --depth 1 kernel-manifest
-          mv -f ./kernel-patch/SM8650_Custom.xml ./kernel-manifest/default.xml
+          # mv -f ./kernel-patch/SM8650_Custom.xml ./kernel-manifest/default.xml
           cd SukiSU_patch
           cp -r AnyKernel3 ../
 
