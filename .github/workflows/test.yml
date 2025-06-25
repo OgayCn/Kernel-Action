@@ -41,6 +41,15 @@ jobs:
           TIMESTAMP=$(date -u '+%a %b %e %T %Z %Y')
           echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
 
+      - name: 克隆外部依赖
+        run: |
+          git clone $GOOGLE_SOURCE_URL/kernel/prebuilts/build-tools -b main-kernel --depth 1 kernel-build-tools
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1 --depth 1
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
+          git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
+          cd SukiSU_patch
+          cp -r AnyKernel3 ../
+
       - name: 拉取内核源码
         run: |
           mkdir -p ./git-repo
@@ -48,5 +57,5 @@ jobs:
           chmod a+rx ./git-repo/repo
           mkdir -p "$CONFIG"
           cd "$CONFIG"
-          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 -u https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git -b refs/heads/main -m SM8650_Custom.xml
+          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u $GITHUB_WORKSPACE/kernel-patch -m SM8650_Custom.xml -b common-android14-6.1-lts --repo-rev=v2.16
           $GITHUB_WORKSPACE/./git-repo/repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
