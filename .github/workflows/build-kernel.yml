@@ -160,9 +160,6 @@ jobs:
           patch -p1 -F 3 < lz4kd.patch || true
           echo "lz4kd patches complete..."
 
-          patch -p1 -F 3 < 001-lz4.patch || true
-          echo "New lz4 patches complete..."
-
       - name: 添加内核配置
         run: |
           echo "Add zram configuration settings..."
@@ -180,7 +177,7 @@ jobs:
 
           if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
             echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
-            echo "CONFIG_ZRAM_DEF_COMP_LZ4=y" >> "$CONFIG_FILE"
+            echo "CONFIG_ZRAM_DEF_COMP_LZ4KD=y" >> "$CONFIG_FILE"
             echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
           fi
           
