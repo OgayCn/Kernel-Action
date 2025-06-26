@@ -58,7 +58,7 @@ jobs:
           echo "CCACHE_HASH=${CCACHE_HASH}" >> $GITHUB_OUTPUT
 
       - name: 载入 APT 缓存
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: /var/lib/apt/lists
           key: ccache-${{ runner.os }}-${{ github.ref }}-apt-${{ steps.set-variable.outputs.CCACHE_HASH }}
@@ -77,12 +77,12 @@ jobs:
           libxml2-utils rsync unzip
 
       - name: 载入 ccache 缓存
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-
+            ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-
 
       - name: 初始化 cceche
         run: |
@@ -313,13 +313,7 @@ jobs:
             *.zip
 
       - name: 保存本次缓存
-        uses: actions/cache/save@v3
+        uses: actions/cache/save@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-${{ github.run_id }}-${{ github.run_attempt }}
-
-      - name: 清理过期缓存
-        uses: actions/cache/delete@v3
-        with:
-          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-
-          older-than: 3
+          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}
