@@ -314,9 +314,3 @@ jobs:
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-${{ github.run_id }}-${{ github.run_attempt }}
-          
-      - name: 清理过期缓存
-        uses: geekyeggo/delete-cache@v1
-        with:
-          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-
-          min-age: 2
