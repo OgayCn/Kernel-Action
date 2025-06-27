@@ -5,6 +5,9 @@ permissions:
   actions: write
   
 on:
+  schedule:
+    - cron: '0 16 * * *'
+    - cron: '0 10 * * *'
   workflow_dispatch:
     inputs:
       version:

@@ -6,15 +6,9 @@ permissions:
 on:
   workflow_call:
     inputs:
-      revision:
-        required: false
-        type: string
       version:
         required: false
         type: string
-  schedule:
-    - cron: '0 16 * * *'
-    - cron: '0 10 * * *'
 
 jobs:
   build-kernel-sukisu-susfs:
@@ -134,7 +128,7 @@ jobs:
         run: |
           echo "开始安装 SukiSU Ultra..."
           cd "$CONFIG"
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-1.5.8
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
           
       - name: 应用内核补丁
         run: |
