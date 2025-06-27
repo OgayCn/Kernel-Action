@@ -12,6 +12,9 @@ on:
       version:
         required: false
         type: string
+  schedule:
+    - cron: '0 16 * * *'
+    - cron: '0 10 * * *'
 
 jobs:
   build-kernel-sukisu-susfs:
@@ -54,14 +57,24 @@ jobs:
           echo "BOOTHASH=$CHASH" >> $GITHUB_ENV
           TIMESTAMP=$(date -u '+%a %b %e %T %Z %Y')
           echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
-          CCACHE_HASH=$(git hash-object "./kernel-patch/ccache.sha")
-          echo "CCACHE_HASH=${CCACHE_HASH}" >> $GITHUB_OUTPUT
+
+          NOW_HOUR=$(TZ=Asia/Shanghai date +%H)
+          DATE_STR=$(TZ=Asia/Shanghai date +%Y%m%d)
+
+          if [ "$NOW_HOUR" -lt 18 ]; then
+            CCACHE_DATETIME="${DATE_STR}00"
+          else
+            CCACHE_DATETIME="${DATE_STR}18"
+          fi
+
+          echo "使用的 CCACHE_DATETIME: $CCACHE_DATETIME"
+          echo "CCACHE_DATETIME=$CCACHE_DATETIME" >> $GITHUB_OUTPUT
 
       - name: 载入 APT 缓存
         uses: actions/cache@v4
         with:
           path: /var/lib/apt/lists
-          key: ccache-${{ runner.os }}-${{ github.ref }}-apt-${{ steps.set-variable.outputs.CCACHE_HASH }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-apt-${{ steps.set-variable.outputs.CCACHE_DATETIME }}
           restore-keys: |
             ccache-${{ runner.os }}-${{ github.ref }}-apt-
 
@@ -80,9 +93,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}
+          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_DATETIME }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-
+            ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_DATETIME }}-
 
       - name: 初始化 cceche
         run: |
@@ -308,9 +321,3 @@ jobs:
           name: SukiSU-kernel-${{ env.CONFIG }}
           path: |
             *.zip
-
-      - name: 保存本次缓存
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ env.CCACHE_DIR }}
-          key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_HASH }}-${{ github.run_id }}-${{ github.run_attempt }}
