@@ -243,7 +243,7 @@ jobs:
           else
             echo "未配置内核版本号,将使用默认版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH"
             echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH" >> $GITHUB_ENV
-            sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'"|' ./common/scripts/setlocalversion
+            sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}-lz"'"|' ./common/scripts/setlocalversion
           fi
           
           perl -pi -e 's/"\$\{LINUX_COMPILE_BY\}"/"\Q$ENV{KBUILD_BUILD_USER}\E"/g' ./common/scripts/mkcompile_h
