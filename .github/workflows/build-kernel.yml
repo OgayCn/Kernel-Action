@@ -67,21 +67,22 @@ jobs:
       - name: 载入 APT 缓存
         uses: actions/cache@v4
         with:
-          path: /var/lib/apt/lists
-          key: ccache-${{ runner.os }}-${{ github.ref }}-apt-${{ steps.set-variable.outputs.CCACHE_DATETIME }}
+          path: /var/cache/apt/archives
+          key: apt-archives-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_DATETIME }}
           restore-keys: |
-            ccache-${{ runner.os }}-${{ github.ref }}-apt-
+            apt-archives-${{ runner.os }}-${{ github.ref }}-
 
       - name: 安装环境依赖
         run: |
-          if [ ! -d "/var/lib/apt/lists" ] || [ -z "$(ls -A /var/lib/apt/lists)" ]; then
-            sudo apt update -qq
-          fi
+          sudo chown -R root:root /var/cache/apt/archives
+          sudo chmod -R 644 /var/cache/apt/archives
+          sudo chmod 755 /var/cache/apt/archives
+          sudo apt update -qq
           sudo apt install -y --no-install-recommends \
-          python3 git curl ccache libelf-dev \
-          build-essential flex bison libssl-dev \
-          libncurses-dev liblz4-tool zlib1g-dev \
-          libxml2-utils rsync unzip
+            python3 git curl ccache libelf-dev \
+            build-essential flex bison libssl-dev \
+            libncurses-dev liblz4-tool zlib1g-dev \
+            libxml2-utils rsync unzip
 
       - name: 载入 ccache 缓存
         uses: actions/cache@v4
@@ -315,12 +316,3 @@ jobs:
           name: SukiSU-kernel-${{ env.CONFIG }}
           path: |
             *.zip
-
-      - name: 修复 APT 权限
-        run: |
-          sudo chown -R root:root /var/lib/apt/lists/
-          sudo chmod -R 644 /var/lib/apt/lists/
-          sudo chmod 755 /var/lib/apt/lists
-          sudo rm -rf /var/lib/apt/lists/partial
-          sudo rm -f /var/lib/apt/lists/lock
-
