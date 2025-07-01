@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '6.1.141-android14-11-g<自动哈希>-<自定义后缀>/留空默认lz'
+        description: '自定义版本号后缀/留空默认lz'
         required: false
         type: string
 jobs:

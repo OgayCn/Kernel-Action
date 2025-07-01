@@ -64,19 +64,8 @@ jobs:
           echo "使用的 CCACHE_DATETIME: $CCACHE_DATETIME"
           echo "CCACHE_DATETIME=$CCACHE_DATETIME" >> $GITHUB_OUTPUT
 
-      - name: 载入 APT 缓存
-        uses: actions/cache@v4
-        with:
-          path: /var/cache/apt/archives
-          key: apt-archives-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_DATETIME }}
-          restore-keys: |
-            apt-archives-${{ runner.os }}-${{ github.ref }}-
-
       - name: 安装环境依赖
         run: |
-          sudo chown -R root:root /var/cache/apt/archives
-          sudo chmod -R 644 /var/cache/apt/archives
-          sudo chmod 755 /var/cache/apt/archives
           sudo apt update -qq
           sudo apt install -y --no-install-recommends \
             python3 git curl ccache libelf-dev \
@@ -309,7 +298,6 @@ jobs:
           cp ./$CONFIG/common/out/arch/arm64/boot/Image ./AnyKernel3/
           cd ./AnyKernel3
           zip -r "../$BOOTNAME.zip" ./*
-          sudo rm -rf /var/cache/apt/archives/partial
 
       - name: 上传产出文件
         uses: actions/upload-artifact@v4
