@@ -241,8 +241,8 @@ jobs:
             echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}" >> $GITHUB_ENV
             sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'-'"${{ inputs.version }}"'"|' ./common/scripts/setlocalversion
           else
-            echo "未配置内核版本号,将使用默认版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH"
-            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH" >> $GITHUB_ENV
+            echo "未配置内核版本号,将使用默认版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH-lz"
+            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH-lz" >> $GITHUB_ENV
             sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}-lz"'"|' ./common/scripts/setlocalversion
           fi
           
@@ -315,3 +315,12 @@ jobs:
           name: SukiSU-kernel-${{ env.CONFIG }}
           path: |
             *.zip
+
+      - name: 修复 APT 权限
+        run: |
+          sudo chown -R root:root /var/lib/apt/lists/
+          sudo chmod -R 644 /var/lib/apt/lists/
+          sudo chmod 755 /var/lib/apt/lists
+          sudo rm -rf /var/lib/apt/lists/partial
+          sudo rm -f /var/lib/apt/lists/lock
+
