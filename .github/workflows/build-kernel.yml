@@ -39,7 +39,7 @@ jobs:
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1 --depth 1
           git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
           git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
-          cd SukiSU_patch
+          cd kernel-patch
           cp -r AnyKernel3 ../
 
       - name: 配置环境变量
@@ -100,7 +100,7 @@ jobs:
           chmod a+rx ./git-repo/repo
           mkdir -p "$CONFIG"
           cd "$CONFIG"
-          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u $GOOGLE_SOURCE_URL/kernel/manifest -b common-android14-6.1-lts --repo-rev=v2.16
+          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u $GOOGLE_SOURCE_URL/kernel/manifest -b common-android14-6.1 --repo-rev=v2.16
           $GITHUB_WORKSPACE/./git-repo/repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
 
       - name: 下载 Clang 21
@@ -130,7 +130,8 @@ jobs:
 
           # Copy new lz4 patches
           cp ../kernel-patch/patches/001-lz4.patch ./common/
-          cp ../kernel-patch/patches/lz4armv8.S ./common/lib
+          cp ../kernel-patch/patches/lz4armv8.S ./common/lib/
+          cp ../kernel-patch/patches/002-zstd.patch ./common/
 
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
@@ -156,6 +157,10 @@ jobs:
           cp ../../SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
           echo "lz4kd patches complete..."
+
+          git apply -p1 < 001-lz4.patch || true
+          patch -p1 < 002-zstd.patch || true
+          echo "zstd & lz4 patches complete..."
 
       - name: 添加内核配置
         run: |
