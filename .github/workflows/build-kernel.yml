@@ -129,9 +129,7 @@ jobs:
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
           # Copy new lz4 patches
-          # cp ../kernel-patch/patches/001-lz4.patch ./common/
-          # cp ../kernel-patch/patches/002-zstd.patch ./common/
-          cp ../kernel-patch/patches/lz4armv8.S ./common/lib/
+          cp ../kernel-patch/patches/lz4_1.10.0.patch ./common/
 
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
