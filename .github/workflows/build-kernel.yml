@@ -242,7 +242,7 @@ jobs:
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
 
-          echo "CONFIG_MQ_IOSCHED_DEFAULT_NONE=y" >> "$CONFIG_FILE"
+          echo "CONFIG_MQ_IOSCHED_DEFAULT_KYBER=y" >> "$CONFIG_FILE"
     
           echo "Remove check_defconfig..."
           sed -i 's/check_defconfig//' $CONFIG/common/build.config.gki
