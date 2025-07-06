@@ -311,7 +311,7 @@ jobs:
               HOSTLD=ld.lld
               CONFIG_LTO_CLANG=y
               CONFIG_LTO_CLANG_THIN=y
-              KCFLAGS+=-O3
+              KCFLAGS+=-O2
             )
   
             make "${COMMON_MAKE_PARAMS[@]}" gki_defconfig || { echo "make defconfig failed"; exit 1; }
