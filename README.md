@@ -14,6 +14,7 @@
 | [BBR](https://blog.thinkin.top/archives/ke-pu-bbrdao-di-shi-shi-me) | 更优秀的TCP拥塞控制算法 |
 | [Wireguard](https://zh.wikipedia.org/wiki/WireGuard) | 参考左侧 wiki 链接 |
 | [LZ4KD](https://github.com/ShirkNeko/SukiSU_patch/tree/main/other) | HUAWEI 的 zram 算法，由[云彩之枫](https://github.com/yspbwx2010)移植 |
-| [Mi-Patch](https://github.com/OgayCn/GKI-Kernel-Action) | 修复米系手机使用LTS分支带来的严重问题 |
+| [ADIOS](https://github.com/firelzrd/adios) | 自适应时限I/O调度器，降低I/O操作延迟 |
+| [Mi-Patch](https://github.com/OgayCn/Kernel-Patch) | 修复米系手机使用LTS分支带来的严重问题 |
 | [Clang 21](https://github.com/ZyCromerZ/Clang) | 使用 Zyc Clang21编译器编译 |
 | [其他功能](https://github.com/OgayCn/Kernel-Action/releases) | 更多支持的功能请看 Releases 发布详情 |
