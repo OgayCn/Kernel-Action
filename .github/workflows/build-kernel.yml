@@ -176,6 +176,7 @@ jobs:
                   echo "f2fs-\$(CONFIG_F2FS_IOSTAT) += iostat.o" >> "fs/f2fs/Makefile"
               fi
           fi
+          echo "lz4 1.10 patches complete..."
 
       - name: 添加内核配置
         run: |
@@ -193,6 +194,8 @@ jobs:
           echo "CONFIG_MODULE_SIG_FORCE=n" >> "$CONFIG_FILE"
 
           if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
+            echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
+            echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
             echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
             echo "CONFIG_ZRAM_DEF_COMP_LZ4=y" >> "$CONFIG_FILE"
             echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
@@ -306,7 +309,9 @@ jobs:
               PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole
               LD=ld.lld
               HOSTLD=ld.lld
-              KCFLAGS+=-O2
+              CONFIG_LTO_CLANG=y
+              CONFIG_LTO_CLANG_THIN=y
+              KCFLAGS+=-O3
             )
   
             make "${COMMON_MAKE_PARAMS[@]}" gki_defconfig || { echo "make defconfig failed"; exit 1; }
