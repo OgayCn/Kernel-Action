@@ -220,7 +220,7 @@ jobs:
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
       
           echo "Remove check_defconfig..."
-          sed -i 's/check_defconfig//' ./common/build.config.gki
+          sed -i 's/check_defconfig//' $CONFIG/common/build.config.gki
 
       - name: 设置内核信息
         run: |
