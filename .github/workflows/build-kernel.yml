@@ -312,6 +312,7 @@ jobs:
               CONFIG_LTO_CLANG=y
               CONFIG_LTO_CLANG_THIN=y
               KCFLAGS+=-O2
+              KCFLAGS+=-Wno-uninitialized-const-pointer
             )
   
             make "${COMMON_MAKE_PARAMS[@]}" gki_defconfig || { echo "make defconfig failed"; exit 1; }
