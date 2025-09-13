@@ -110,7 +110,7 @@ jobs:
           -> LZ4-1.10(armv8优化)
           -> LTS 分支小米系修复
           -> 开启 -O2 编译优化
-          -> Zyc Clang21 编译
+          -> Zyc Clang22 编译
       
           ### 发布提交Hash:
           -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})

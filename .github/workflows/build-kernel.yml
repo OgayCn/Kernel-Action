@@ -105,14 +105,15 @@ jobs:
 
       - name: 下载 Clang 21
         run: |
-          #CLANG_LINK=$(curl -sL https://raw.githubusercontent.com/ZyCromerZ/Clang/main/Clang-main-link.txt)
-          curl -L -o clang-21.tar.gz "https://github.com/ZyCromerZ/Clang/releases/download/22.0.0git-20250716-release/Clang-22.0.0git-20250716.tar.gz"
+          CLANG_LINK=$(curl -sL https://raw.githubusercontent.com/ZyCromerZ/Clang/main/Clang-main-link.txt)
+          #curl -L -o clang-22.tar.gz "https://github.com/ZyCromerZ/Clang/releases/download/22.0.0git-20250716-release/Clang-22.0.0git-20250716.tar.gz"
+          curl -L -o clang-22.tar.gz "$CLANG_LINK"
 
           # 解压并清理
-          echo "Unzip clang-21"
-          sudo mkdir -p $GITHUB_WORKSPACE/clang-21
-          sudo tar -xzf clang-21.tar.gz -C $GITHUB_WORKSPACE/clang-21
-          sudo rm -f clang-21.tar.gz
+          echo "Unzip clang-22"
+          sudo mkdir -p $GITHUB_WORKSPACE/clang-22
+          sudo tar -xzf clang-22.tar.gz -C $GITHUB_WORKSPACE/clang-22
+          sudo rm -f clang-22.tar.gz
       
       - name: 添加 SukiSU
         run: |
@@ -287,8 +288,8 @@ jobs:
             sed -i 's/-dirty//' common/scripts/setlocalversion
             cd common
             
-            # 使用 ZyC Clang 21 编译
-            export PATH="$GITHUB_WORKSPACE/clang-21/bin:$PATH"
+            # 使用 ZyC Clang 22 编译
+            export PATH="$GITHUB_WORKSPACE/clang-22/bin:$PATH"
             
             # 使用 ccache 缓存加速编译
             export PATH="/usr/lib/ccache:$PATH"
