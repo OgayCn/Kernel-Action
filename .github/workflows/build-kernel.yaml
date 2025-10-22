@@ -1,17 +1,22 @@
-name: Build-Kernel-6.1-LTS
+name: 构建并发布内核
+
 permissions:
   contents: write
   actions: write
 
 on:
-  workflow_call:
+  schedule:
+    - cron: '0 16 * * *'
+    - cron: '0 10 * * *'
+  workflow_dispatch:
     inputs:
       version:
+        description: '自定义版本号后缀/留空默认lz'
         required: false
         type: string
 
 jobs:
-  build-kernel-sukisu-susfs:
+  build-kernel:
     runs-on: ubuntu-latest
     env:
       CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
@@ -186,6 +191,33 @@ jobs:
           fi
           echo "lz4 1.10 patches complete..."
 
+      - name: 防格机补丁
+        run: |
+          cd "$CONFIG"
+          echo "Adding BBG..."
+          wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
+
+          # Before sed: Show the original LSM default line for comparison
+          echo "=== Before sed ==="
+          sed -n '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ p }' common/security/Kconfig
+          
+          # Apply the sed command to add baseband_guard to default security configurations
+          sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' common/security/Kconfig
+          
+          # After sed: Show the updated LSM default line
+          echo "=== After sed ==="
+          sed -n '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ p }' common/security/Kconfig
+          
+          # Confirm baseband_guard is now present (should output the line if successful)
+          echo "=== Confirmation: grep for baseband_guard ==="
+          if ! grep -q "baseband_guard" common/security/Kconfig; then
+            echo "ERROR: baseband_guard not found after sed - stopping workflow"
+            exit 1
+          else
+            echo "SUCCESS: baseband_guard found in security configuration"
+            grep "baseband_guard" common/security/Kconfig
+          fi
+
       - name: 添加内核配置
         run: |
           CONFIG_FILE="$CONFIG/common/arch/arm64/configs/gki_defconfig"
@@ -210,6 +242,9 @@ jobs:
             echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
           fi
         
+          echo "Add BBG configuration settings..."
+          echo "CONFIG_BBG=y" >> "$CONFIG_FILE"
+
           echo "Add KSU configuration settings..."
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
@@ -250,7 +285,7 @@ jobs:
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-    
+
           echo "Remove check_defconfig..."
           sed -i 's/check_defconfig//' $CONFIG/common/build.config.gki
 
@@ -258,10 +293,10 @@ jobs:
         run: |
           cd "$CONFIG"
           SUBLEVEL=$(awk -F' = ' '/^SUBLEVEL / {print $2}' ./common/Makefile)
-          if [ ! -z ${{ inputs.version }} ]; then
-            echo "目标内核版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}"
-            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ inputs.version }}" >> $GITHUB_ENV
-            sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'-'"${{ inputs.version }}"'"|' ./common/scripts/setlocalversion
+          if [ ! -z "${{ github.event.inputs.version }}" ]; then
+            echo "目标内核版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ github.event.inputs.version }}"
+            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ github.event.inputs.version }}" >> $GITHUB_ENV
+            sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'-'"${{ github.event.inputs.version }}"'"|' ./common/scripts/setlocalversion
           else
             echo "未配置内核版本号,将使用默认版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH-lz"
             echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH-lz" >> $GITHUB_ENV
@@ -339,3 +374,128 @@ jobs:
           name: SukiSU-kernel-${{ env.CONFIG }}
           path: |
             *.zip
+
+  trigger-release:
+    runs-on: ubuntu-latest
+    needs:
+      - build-kernel
+    env:
+      REPO_NAME: 6.1-LTS-GKI-Kernel-Action
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_NAME: "GKI 6.1.LTS SukiSU"
+      RELEASE_BODY:
+    steps:
+      - name: 检查代码
+        uses: actions/checkout@v4
+
+      - name: 获取提交哈希值并生成提交URL
+        run: |
+          GITLAB_OWNER="simonpunk"
+          GITLAB_REPO="susfs4ksu"
+          
+          declare -A BRANCH_MAP=(
+            ["gki_android14_6_1"]="gki-android14-6.1"
+          )
+          
+          for var_name in "${!BRANCH_MAP[@]}"; do
+            branch_name="${BRANCH_MAP[$var_name]}"
+            COMMIT_HASH=$(git ls-remote https://gitlab.com/$GITLAB_OWNER/$GITLAB_REPO.git refs/heads/$branch_name | awk '{ print $1 }')
+            
+            if [[ -n "$COMMIT_HASH" ]]; then
+              COMMIT_URL="https://gitlab.com/$GITLAB_OWNER/$GITLAB_REPO/-/commit/$COMMIT_HASH"
+              echo "$branch_name Commit: $COMMIT_HASH"
+              echo "$branch_name Commit URL: $COMMIT_URL"
+              
+              echo "COMMIT_HASH_${var_name}=$COMMIT_HASH" >> "$GITHUB_ENV"
+              echo "COMMIT_URL_${var_name}=$COMMIT_URL" >> "$GITHUB_ENV"
+            fi
+          done
+
+          get_ref() {
+            local name="$1" repo="$2" path="$3" mode="$4"
+            if [[ "$mode" == "tag" ]]; then
+              ref=$(git ls-remote --tags --sort=-v:refname "$repo" | grep -o 'refs/tags/.*' | cut -d/ -f3 | head -n1)
+              url="https://github.com/$path/releases/tag/$ref"
+            else
+              ref=$(git ls-remote "$repo" HEAD | awk '{print $1}')
+              url="https://github.com/$path/commit/$ref"
+            fi
+            echo "SukiSU_REF=$ref" >> $GITHUB_ENV
+            echo "SukiSU_URL=$url" >> $GITHUB_ENV
+          }
+      
+          MODE="commit"
+          get_ref "SukiSU Ultra" "https://github.com/ShirkNeko/SukiSU-Ultra.git" "ShirkNeko/SukiSU-Ultra" "$MODE"
+
+      - name: 创建新标签
+        run: |
+            LATEST_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name')
+            if [ -z "$LATEST_TAG" ]; then
+              LATEST_TAG="6.1-LTS-v0"
+            fi
+            
+            NEW_TAG=$(echo "$LATEST_TAG" | awk -F'-v' '{suffix=$2; if (!suffix) suffix=0; suffix++; printf "%s-v%d", $1, suffix}')
+    
+            echo "新标签: $NEW_TAG"
+            echo "NEW_TAG=${NEW_TAG}" >> $GITHUB_ENV
+
+            git tag $NEW_TAG
+            git push origin $NEW_TAG
+
+      - name: 下载附件
+        uses: actions/download-artifact@v4
+        with:
+          path: ./downloaded-artifacts
+
+      - name: 设置 Release 内容
+        run: |
+          cat << 'EOF' > release_body.md
+          
+          ### 功能:
+          -> SUSFS v1.5.9(最新)
+          -> VFS Hooks 隐藏支持
+          -> Magic Mount 支持
+          -> Wireguard 支持
+          -> LZ4KD & BBR 支持
+          -> LZ4-1.10(armv8优化)
+          -> LTS 分支小米系修复
+          -> 开启 -O2 编译优化
+          -> Zyc Clang22 编译
+      
+          ### 发布提交Hash:
+          -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
+          -> SUSFS(GKI-6.1):[${{ env.COMMIT_HASH_gki_android14_6_1 }}](${{ env.COMMIT_URL_gki_android14_6_1 }})
+          EOF
+
+      - name: 设置 Release 标题
+        run: |
+          git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git
+          cd SukiSU-Ultra
+          KSU_GIT_VERSION=$(git rev-list --count HEAD)
+          KSU_VERSION=$((10000 + KSU_GIT_VERSION + 700))
+          echo $KSU_VERSION
+          echo "RELEASE_NAME=${{ env.RELEASE_NAME }}($KSU_VERSION)" >> $GITHUB_ENV
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.NEW_TAG }}
+          prerelease: false
+          files: ""
+          name: ${{ env.RELEASE_NAME }}
+          body_path: release_body.md
+
+      - name: 上传编译产出文件到 Release
+        run: |
+          for file in ./downloaded-artifacts/*-kernel-*/*; do
+            if [ -d "$file" ]; then
+              continue
+            fi
+            echo "Uploading $file..."
+            gh release upload ${{ env.NEW_TAG }} "$file"
+          done
+
+      - name: 显示上传的文件
+        run: |
+          echo "GitHub release created with the following files:"
+          ls ./downloaded-artifacts/**/*
