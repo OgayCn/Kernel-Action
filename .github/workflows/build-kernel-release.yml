@@ -452,11 +452,12 @@ jobs:
           cat << 'EOF' > release_body.md
           
           ### 功能:
-          -> SUSFS v1.5.9(最新)
-          -> VFS Hooks 隐藏支持
+          -> SUSFS v1.5.12
+          -> VFS Hooks 支持
           -> Magic Mount 支持
           -> Wireguard 支持
           -> LZ4KD & BBR 支持
+          -> BBG 内核防格机支持
           -> LZ4-1.10(armv8优化)
           -> LTS 分支小米系修复
           -> 开启 -O2 编译优化
