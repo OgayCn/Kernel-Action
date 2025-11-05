@@ -153,9 +153,9 @@ jobs:
           echo "6.1-lts patches complete..."
 
           echo "Applying hooks for SukiSU..."
-          cp ../../SukiSU_patch/hooks/scope_min_manual_hooks_v1.6.patch ./
-          patch -p1 -F 3 < scope_min_manual_hooks_v1.6.patch
-          echo "scope_min_manual_hooks_v1.6 patches complete..."
+          cp ../../SukiSU_patch/hooks/syscall_hooks.patch ./
+          patch -p1 -F 3 < syscall_hooks.patch
+          echo "syscall_hooks patches complete..."
 
           cp ../../SukiSU_patch/69_hide_stuff.patch ./
           patch -p1 -F 3 < 69_hide_stuff.patch
