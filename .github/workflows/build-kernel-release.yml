@@ -453,9 +453,9 @@ jobs:
           
           ### 功能:
           -> SUSFS v1.5.12
-          -> VFS Hooks 支持
-          -> Magic Mount 支持
           -> Wireguard 支持
+          -> VFS Hooks v1.6 
+          -> Magic Mount 支持
           -> LZ4KD & BBR 支持
           -> BBG 内核防格机支持
           -> LZ4-1.10(armv8优化)
@@ -473,7 +473,7 @@ jobs:
           git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git
           cd SukiSU-Ultra
           KSU_GIT_VERSION=$(git rev-list --count HEAD)
-          KSU_VERSION=$((10000 + KSU_GIT_VERSION + 700))
+          KSU_VERSION=$((40000 + KSU_GIT_VERSION - 2815))
           echo $KSU_VERSION
           echo "RELEASE_NAME=${{ env.RELEASE_NAME }}($KSU_VERSION)" >> $GITHUB_ENV
 
