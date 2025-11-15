@@ -124,11 +124,11 @@ jobs:
         run: |
           echo "开始安装 SukiSU Ultra..."
           cd "$CONFIG"
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-test
 
           #echo "开始安装 SukiSU Ultra..."
           #cd "$CONFIG"
-          #curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+          #curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-test
           #cd KernelSU
           #git checkout b8b75349e01d2cfa00496b72795bb185b9c2ae4b
           #cd ..
