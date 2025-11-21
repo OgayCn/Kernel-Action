@@ -247,8 +247,8 @@ jobs:
 
           echo "Add KSU configuration settings..."
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
+          # echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
+          # echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
 
           echo "Add additional tmpfs config settings..."
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
@@ -452,9 +452,9 @@ jobs:
           cat << 'EOF' > release_body.md
           
           ### 功能:
-          -> SUSFS v1.5.12
+          -> SUSFS v2.0.0
+          -> Inline Hooks
           -> Wireguard 支持
-          -> VFS Hooks v1.6 
           -> Magic Mount 支持
           -> LZ4KD & BBR 支持
           -> BBG 内核防格机支持
