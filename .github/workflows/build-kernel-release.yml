@@ -124,7 +124,7 @@ jobs:
         run: |
           echo "开始安装 SukiSU Ultra..."
           cd "$CONFIG"
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 
           #echo "开始安装 SukiSU Ultra..."
           #cd "$CONFIG"
