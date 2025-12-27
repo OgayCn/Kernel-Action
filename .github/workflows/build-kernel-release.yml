@@ -43,7 +43,7 @@ jobs:
         run: |
           git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
           cd susfs4ksu
-          git checkout 317a1b81
+          git checkout c1f349f3
           cd ..
           
           git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
