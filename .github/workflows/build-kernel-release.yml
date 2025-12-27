@@ -41,7 +41,11 @@ jobs:
 
       - name: 克隆外部依赖
         run: |
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1 --depth 1
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
+          cd susfs4ksu
+          git checkout 317a1b81
+          cd ..
+          
           git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
           git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
           cd kernel-patch
