@@ -145,7 +145,7 @@ jobs:
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
           # Copy new lz4 patches
-          cp ../kernel-patch/patches/lz4_1.10.0.patch ./common/
+          # cp ../kernel-patch/patches/lz4_1.10.0.patch ./common/
 
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
@@ -160,48 +160,48 @@ jobs:
           # patch -p1 -F 3 < scope_min_manual_hooks_v1.6.patch
           # echo "scope_min_manual_hooks_v1.6 patches complete..."
 
-          cp ../../SukiSU_patch/69_hide_stuff.patch ./
-          patch -p1 -F 3 < 69_hide_stuff.patch
-          echo "69_hide_stuff patches complete..."
+          # cp ../../SukiSU_patch/69_hide_stuff.patch ./
+          # patch -p1 -F 3 < 69_hide_stuff.patch
+          # echo "69_hide_stuff patches complete..."
 
-          cp -r ../../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
-          cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
-          cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
+          # cp -r ../../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
+          # cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
+          # cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
           
           # Unicode 零宽绕过修复与内存优化
           patch -p1 --forward < "../../kernel-patch/patches/optimized_mem_operations.patch"
           patch -p1 --forward < "../../kernel-patch/patches/file_struct_8bytes_align.patch"
           patch -p1 --forward < "../../kernel-patch/patches/reduce_cache_pressure.patch"
           cat "../../kernel-patch/patches/clear_page_16bytes_align.patch" | sed -e 's/SYM_FUNC_START_PI(clear_page)/SYM_FUNC_START_PI(__pi_clear_page)/' | patch -p1 -F3 --forward
-          echo "Patching unicode!"
+          echo "Unicode patches complete..."
           patch -p1 --forward < "../../kernel-patch/patches/unicode_bypass_fix_6.1+.patch"
 
           # lz4 1.10.0
-          cp ../../SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./
-          patch -p1 -F 3 < lz4kd.patch || true
-          echo "lz4kd patches complete..."
+          # cp ../../SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./
+          # patch -p1 -F 3 < lz4kd.patch || true
+          # echo "lz4kd patches complete..."
 
-          files=(
-              "lib/lz4/lz4_compress.c"
-              "lib/lz4/lz4_decompress.c"
-              "lib/lz4/lz4defs.h"
-              "lib/lz4/lz4hc_compress.c"
-          )
+          # files=(
+          #     "lib/lz4/lz4_compress.c"
+          #     "lib/lz4/lz4_decompress.c"
+          #     "lib/lz4/lz4defs.h"
+          #     "lib/lz4/lz4hc_compress.c"
+          # )
 
-          for file in "${files[@]}"; do
-              if [ -e "$file" ]; then
-                  rm "$file"
-              fi
-          done
+          # for file in "${files[@]}"; do
+          #     if [ -e "$file" ]; then
+          #         rm "$file"
+          #     fi
+          # done
 
-          patch -p1 -F 3 --fuzz=5 < lz4_1.10.0.patch || true
+          # patch -p1 -F 3 --fuzz=5 < lz4_1.10.0.patch || true
 
-          if [ -f "fs/f2fs/Makefile" ]; then
-              if ! grep -qF "f2fs-\$(CONFIG_F2FS_IOSTAT) += iostat.o" "fs/f2fs/Makefile"; then
-                  echo "f2fs-\$(CONFIG_F2FS_IOSTAT) += iostat.o" >> "fs/f2fs/Makefile"
-              fi
-          fi
-          echo "lz4 1.10 patches complete..."
+          # if [ -f "fs/f2fs/Makefile" ]; then
+          #     if ! grep -qF "f2fs-\$(CONFIG_F2FS_IOSTAT) += iostat.o" "fs/f2fs/Makefile"; then
+          #         echo "f2fs-\$(CONFIG_F2FS_IOSTAT) += iostat.o" >> "fs/f2fs/Makefile"
+          #     fi
+          # fi
+          # echo "lz4 1.10 patches complete..."
 
       - name: 防格机补丁
         run: |
@@ -234,25 +234,25 @@ jobs:
         run: |
           CONFIG_FILE="$CONFIG/common/arch/arm64/configs/gki_defconfig"
           
-          echo "Add zram configuration settings..."
+          # echo "Add zram configuration settings..."
 
-          if grep -q "CONFIG_ZSMALLOC" -- "$CONFIG_FILE"; then
-              sed -i 's/CONFIG_ZSMALLOC=m/CONFIG_ZSMALLOC=y/g' "$CONFIG_FILE"
-          else
-              echo "CONFIG_ZSMALLOC=y" >> "$CONFIG_FILE"
-          fi
+          # if grep -q "CONFIG_ZSMALLOC" -- "$CONFIG_FILE"; then
+          #     sed -i 's/CONFIG_ZSMALLOC=m/CONFIG_ZSMALLOC=y/g' "$CONFIG_FILE"
+          # else
+          #     echo "CONFIG_ZSMALLOC=y" >> "$CONFIG_FILE"
+          # fi
 
-          sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
-          sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' "$CONFIG/common/modules.bzl"
-          echo "CONFIG_MODULE_SIG_FORCE=n" >> "$CONFIG_FILE"
+          # sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
+          # sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' "$CONFIG/common/modules.bzl"
+          # echo "CONFIG_MODULE_SIG_FORCE=n" >> "$CONFIG_FILE"
 
-          if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
-            echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
-            echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
-            echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
-            echo "CONFIG_ZRAM_DEF_COMP_LZ4=y" >> "$CONFIG_FILE"
-            echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
-          fi
+          # if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
+          #   echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
+          #   echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
+          #   echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
+          #   echo "CONFIG_ZRAM_DEF_COMP_LZ4=y" >> "$CONFIG_FILE"
+          #   echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
+          # fi
         
           echo "Add BBG configuration settings..."
           echo "CONFIG_BBG=y" >> "$CONFIG_FILE"
@@ -266,24 +266,23 @@ jobs:
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
 
-          echo "Add additional config settings..."
-          echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
-          echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
+          # echo "Add additional config settings..."
+          # echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
+          # echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
+          # echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
 
-          echo "Add BBR config settings..."
-          echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE" 
-          echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
-          echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
-          echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"
-          echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
+          # echo "Add BBR config settings..."
+          # echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE" 
+          # echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
+          # echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
+          # echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
+          # echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
+          # echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"
+          # echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
 
           echo "Add SUSFS configuration settings..."
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MAP=n" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
