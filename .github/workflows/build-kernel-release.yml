@@ -169,6 +169,15 @@ jobs:
           cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
           cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
           
+          # Unicode 零宽绕过修复与内存优化
+          patch -p1 --forward < "../kernel-patch/patches/optimized_mem_operations.patch"
+          patch -p1 --forward < "../kernel-patch/patches/file_struct_8bytes_align.patch"
+          patch -p1 --forward < "../kernel-patch/patches/reduce_cache_pressure.patch"
+          cat "../kernel-patch/patches/clear_page_16bytes_align.patch" | sed -e 's/SYM_FUNC_START_PI(clear_page)/SYM_FUNC_START_PI(__pi_clear_page)/' | patch -p1 -F3 --forward
+          echo "Patching unicode!"
+          patch -p1 --forward < "../kernel-patch/patches/unicode_bypass_fix_6.1+.patch"
+
+          # lz4 1.10.0
           cp ../../SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./
           patch -p1 -F 3 < lz4kd.patch || true
           echo "lz4kd patches complete..."
