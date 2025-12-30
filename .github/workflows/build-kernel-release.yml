@@ -40,11 +40,6 @@ jobs:
 
       - name: 克隆外部依赖
         run: |
-          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1
-          cd susfs4ksu
-          git checkout c1f349f3
-          cd ..
-          
           git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
           git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
           cd kernel-patch
@@ -127,20 +122,20 @@ jobs:
         run: |
           echo "开始安装 SukiSU Ultra..."
           cd "$CONFIG"
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s main
 
       - name: 应用内核补丁
         run: |
           cd "$CONFIG"
           # Copy SUSFS patches
-          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
-          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+          # cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+          # cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          #。cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
           # 应用 SUSFS 补丁
           cd ./common
-          patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
-          echo "SukiSU Ultra & SUSFS patches complete......"
+          # patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
+          # echo "SukiSU Ultra & SUSFS patches complete......"
 
           # 应用 LTS 分支补丁
           sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/kernel-common/* ./
@@ -196,25 +191,9 @@ jobs:
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
 
           echo "Add additional tmpfs config settings..."
+          echo "CONFIG_OVERLAY_FS=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
-
-          echo "Add SUSFS configuration settings..."
-          echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
-
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MAP=n" >> "$CONFIG_FILE"
 
           echo "Remove check_defconfig..."
           sed -i 's/check_defconfig//' $CONFIG/common/build.config.gki
@@ -382,8 +361,6 @@ jobs:
           cat << 'EOF' > release_body.md
           
           ### 功能:
-          -> SUSFS v2.0.0
-          -> Inline Hooks
           -> Wireguard 支持
           -> BBG 内核防格机支持
           -> LTS 分支小米系修复
@@ -392,7 +369,6 @@ jobs:
       
           ### 发布提交Hash:
           -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
-          -> SUSFS(GKI-6.1):[${{ env.COMMIT_HASH_gki_android14_6_1 }}](${{ env.COMMIT_URL_gki_android14_6_1 }})
           EOF
 
       - name: 设置 Release 标题
