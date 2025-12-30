@@ -111,7 +111,7 @@ jobs:
           $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u $GOOGLE_SOURCE_URL/kernel/manifest -b common-android14-6.1-lts --repo-rev=v2.16
           $GITHUB_WORKSPACE/./git-repo/repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
 
-      - name: 下载 Clang 21
+      - name: 下载 Clang 22
         run: |
           CLANG_LINK=$(curl -sL https://raw.githubusercontent.com/ZyCromerZ/Clang/main/Clang-main-link.txt)
           #curl -L -o clang-22.tar.gz "https://github.com/ZyCromerZ/Clang/releases/download/22.0.0git-20250716-release/Clang-22.0.0git-20250716.tar.gz"
@@ -129,13 +129,6 @@ jobs:
           cd "$CONFIG"
           curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
 
-          #echo "开始安装 SukiSU Ultra..."
-          #cd "$CONFIG"
-          #curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s tmp-susfs-main
-          #cd KernelSU
-          #git checkout b8b75349e01d2cfa00496b72795bb185b9c2ae4b
-          #cd ..
-
       - name: 应用内核补丁
         run: |
           cd "$CONFIG"
@@ -144,9 +137,7 @@ jobs:
           cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
           cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
 
-          # Copy new lz4 patches
-          # cp ../kernel-patch/patches/lz4_1.10.0.patch ./common/
-
+          # 应用 SUSFS 补丁
           cd ./common
           patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
           echo "SukiSU Ultra & SUSFS patches complete......"
@@ -155,18 +146,9 @@ jobs:
           sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/kernel-common/* ./
           echo "6.1-lts patches complete..."
 
-          # echo "Applying hooks for SukiSU..."
-          # cp ../../SukiSU_patch/hooks/scope_min_manual_hooks_v1.6.patch ./
-          # patch -p1 -F 3 < scope_min_manual_hooks_v1.6.patch
-          # echo "scope_min_manual_hooks_v1.6 patches complete..."
-
           # cp ../../SukiSU_patch/69_hide_stuff.patch ./
           # patch -p1 -F 3 < 69_hide_stuff.patch
           # echo "69_hide_stuff patches complete..."
-
-          # cp -r ../../SukiSU_patch/other/zram/lz4k/include/linux/* ./include/linux/
-          # cp -r ../../SukiSU_patch/other/zram/lz4k/lib/* ./lib/
-          # cp -r ../../SukiSU_patch/other/zram/lz4k/crypto/* ./crypto/
           
           # Unicode 零宽绕过修复与内存优化
           patch -p1 --forward < "../../kernel-patch/patches/optimized_mem_operations.patch"
@@ -175,33 +157,6 @@ jobs:
           cat "../../kernel-patch/patches/clear_page_16bytes_align.patch" | sed -e 's/SYM_FUNC_START_PI(clear_page)/SYM_FUNC_START_PI(__pi_clear_page)/' | patch -p1 -F3 --forward
           echo "Unicode patches complete..."
           patch -p1 --forward < "../../kernel-patch/patches/unicode_bypass_fix_6.1+.patch"
-
-          # lz4 1.10.0
-          # cp ../../SukiSU_patch/other/zram/zram_patch/6.1/lz4kd.patch ./
-          # patch -p1 -F 3 < lz4kd.patch || true
-          # echo "lz4kd patches complete..."
-
-          # files=(
-          #     "lib/lz4/lz4_compress.c"
-          #     "lib/lz4/lz4_decompress.c"
-          #     "lib/lz4/lz4defs.h"
-          #     "lib/lz4/lz4hc_compress.c"
-          # )
-
-          # for file in "${files[@]}"; do
-          #     if [ -e "$file" ]; then
-          #         rm "$file"
-          #     fi
-          # done
-
-          # patch -p1 -F 3 --fuzz=5 < lz4_1.10.0.patch || true
-
-          # if [ -f "fs/f2fs/Makefile" ]; then
-          #     if ! grep -qF "f2fs-\$(CONFIG_F2FS_IOSTAT) += iostat.o" "fs/f2fs/Makefile"; then
-          #         echo "f2fs-\$(CONFIG_F2FS_IOSTAT) += iostat.o" >> "fs/f2fs/Makefile"
-          #     fi
-          # fi
-          # echo "lz4 1.10 patches complete..."
 
       - name: 防格机补丁
         run: |
@@ -234,61 +189,24 @@ jobs:
         run: |
           CONFIG_FILE="$CONFIG/common/arch/arm64/configs/gki_defconfig"
           
-          # echo "Add zram configuration settings..."
-
-          # if grep -q "CONFIG_ZSMALLOC" -- "$CONFIG_FILE"; then
-          #     sed -i 's/CONFIG_ZSMALLOC=m/CONFIG_ZSMALLOC=y/g' "$CONFIG_FILE"
-          # else
-          #     echo "CONFIG_ZSMALLOC=y" >> "$CONFIG_FILE"
-          # fi
-
-          # sed -i 's/CONFIG_ZRAM=m/CONFIG_ZRAM=y/g' "$CONFIG_FILE"
-          # sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' "$CONFIG/common/modules.bzl"
-          # echo "CONFIG_MODULE_SIG_FORCE=n" >> "$CONFIG_FILE"
-
-          # if grep -q "CONFIG_ZSMALLOC=y" "$CONFIG_FILE" && grep -q "CONFIG_ZRAM=y" "$CONFIG_FILE"; then
-          #   echo "CONFIG_CRYPTO_LZ4K=y" >> "$CONFIG_FILE"
-          #   echo "CONFIG_CRYPTO_LZ4HC=y" >> "$CONFIG_FILE"
-          #   echo "CONFIG_CRYPTO_LZ4KD=y" >> "$CONFIG_FILE"
-          #   echo "CONFIG_ZRAM_DEF_COMP_LZ4=y" >> "$CONFIG_FILE"
-          #   echo "CONFIG_ZRAM_WRITEBACK=y" >> "$CONFIG_FILE"
-          # fi
-        
           echo "Add BBG configuration settings..."
           echo "CONFIG_BBG=y" >> "$CONFIG_FILE"
 
           echo "Add KSU configuration settings..."
           echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
-          # echo "CONFIG_KSU_SUSFS_SUS_SU=n" >> "$CONFIG_FILE"
-          # echo "CONFIG_KSU_MANUAL_HOOK=y" >> "$CONFIG_FILE"
 
           echo "Add additional tmpfs config settings..."
           echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
           echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
 
-          # echo "Add additional config settings..."
-          # echo "CONFIG_IP_NF_TARGET_TTL=y" >> "$CONFIG_FILE"
-          # echo "CONFIG_IP6_NF_TARGET_HL=y" >> "$CONFIG_FILE"
-          # echo "CONFIG_IP6_NF_MATCH_HL=y" >> "$CONFIG_FILE"
-
-          # echo "Add BBR config settings..."
-          # echo "CONFIG_TCP_CONG_ADVANCED=y" >> "$CONFIG_FILE" 
-          # echo "CONFIG_TCP_CONG_BBR=y" >> "$CONFIG_FILE"
-          # echo "CONFIG_NET_SCH_FQ=y" >> "$CONFIG_FILE"
-          # echo "CONFIG_TCP_CONG_BIC=n" >> "$CONFIG_FILE"
-          # echo "CONFIG_TCP_CONG_WESTWOOD=n" >> "$CONFIG_FILE"
-          # echo "CONFIG_TCP_CONG_HTCP=n" >> "$CONFIG_FILE"
-          # echo "CONFIG_DEFAULT_BBR=y" >> "$CONFIG_FILE"
-
           echo "Add SUSFS configuration settings..."
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MAP=n" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n" >> "$CONFIG_FILE"
+
           echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
@@ -296,6 +214,7 @@ jobs:
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MAP=n" >> "$CONFIG_FILE"
 
           echo "Remove check_defconfig..."
           sed -i 's/check_defconfig//' $CONFIG/common/build.config.gki
@@ -466,10 +385,7 @@ jobs:
           -> SUSFS v2.0.0
           -> Inline Hooks
           -> Wireguard 支持
-          -> Magic Mount 支持
-          -> LZ4KD & BBR 支持
           -> BBG 内核防格机支持
-          -> LZ4-1.10(armv8优化)
           -> LTS 分支小米系修复
           -> 开启 -O2 编译优化
           -> Zyc Clang22 编译
