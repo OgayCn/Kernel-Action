@@ -1,4 +1,4 @@
-name: 构建并发布内核
+name: 构建并发布内核(Susfs)
 
 permissions:
   contents: write
@@ -416,4 +416,5 @@ jobs:
       - name: 显示上传的文件
         run: |
           echo "GitHub release created with the following files:"
+
           ls ./downloaded-artifacts/**/*
