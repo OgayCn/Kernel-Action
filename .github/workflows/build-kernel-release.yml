@@ -126,24 +126,11 @@ jobs:
 
       - name: 应用内核补丁
         run: |
-          cd "$CONFIG"
-          # Copy SUSFS patches
-          # cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
-          # cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          #。cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-
-          # 应用 SUSFS 补丁
-          cd ./common
-          # patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
-          # echo "SukiSU Ultra & SUSFS patches complete......"
+          cd "$CONFIG/common"
 
           # 应用 LTS 分支补丁
           sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/kernel-common/* ./
           echo "6.1-lts patches complete..."
-
-          # cp ../../SukiSU_patch/69_hide_stuff.patch ./
-          # patch -p1 -F 3 < 69_hide_stuff.patch
-          # echo "69_hide_stuff patches complete..."
           
           # Unicode 零宽绕过修复与内存优化
           patch -p1 --forward < "../../kernel-patch/patches/optimized_mem_operations.patch"
@@ -361,6 +348,7 @@ jobs:
           cat << 'EOF' > release_body.md
           
           ### 功能:
+          -> Tp Hook 支持
           -> Wireguard 支持
           -> BBG 内核防格机支持
           -> LTS 分支小米系修复
@@ -378,7 +366,7 @@ jobs:
           KSU_GIT_VERSION=$(git rev-list --count HEAD)
           KSU_VERSION=$((40000 + KSU_GIT_VERSION - 2815))
           echo $KSU_VERSION
-          echo "RELEASE_NAME=${{ env.RELEASE_NAME }}($KSU_VERSION)" >> $GITHUB_ENV
+          echo "RELEASE_NAME=${{ env.RELEASE_NAME }}($KSU_VERSION)-NoSusfs" >> $GITHUB_ENV
 
       - name: 创建 GitHub Release
         uses: softprops/action-gh-release@v2
