@@ -1,0 +1,419 @@
+name: 构建并发布内核
+
+permissions:
+  contents: write
+  actions: write
+
+on:
+  schedule:
+    - cron: '0 10 * * *'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '自定义版本号后缀/留空默认lz'
+        required: false
+        type: string
+
+jobs:
+  build-kernel:
+    runs-on: ubuntu-latest
+    env:
+      CCACHE_COMPILERCHECK: "%compiler% -dumpmachine; %compiler% -dumpversion"
+      CCACHE_NOHASHDIR: "true"
+      CCACHE_HARDLINK: "true"
+      CCACHE_MAXSIZE: "8G"
+      KBUILD_BUILD_USER: "DawnFz"
+      KBUILD_BUILD_HOST: "Github"
+      CONFIG: "android14-6.1-LTS"
+      GOOGLE_SOURCE_URL: "https://android.googlesource.com"
+
+    steps:
+      - name: 初始化构建空间
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 8192
+          temp-reserve-mb: 2048
+          swap-size-mb: 8192
+          remove-dotnet: "true"
+          remove-haskell: "true"
+          remove-codeql: "true"
+
+      - name: 克隆外部依赖
+        run: |
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-android14-6.1 --depth 1
+          git clone https://github.com/ShirkNeko/SukiSU_patch.git --depth 1
+          git clone https://${{ secrets.PATCH_ACCESS_TOKEN }}@github.com/OgayCn/Kernel-Patch.git --depth 1 kernel-patch
+          cd kernel-patch
+          cp -r AnyKernel3 ../
+
+      - name: 配置环境变量
+        id: set-variable
+        run: |
+          CHASH=$(date +%s%N | sha1sum | cut -c1-12)
+          echo "本次构建哈希:$CHASH"
+          echo "CCACHE_DIR=$HOME/.ccache_6.1.lts" >> $GITHUB_ENV
+          echo "BOOTHASH=$CHASH" >> $GITHUB_ENV
+          TIMESTAMP=$(date -u '+%a %b %e %T %Z %Y')
+          echo "TIMESTAMP=$TIMESTAMP" >> $GITHUB_ENV
+
+          NOW_HOUR=$(TZ=Asia/Shanghai date +%H)
+          DATE_STR=$(TZ=Asia/Shanghai date +%Y%m%d)
+
+          if [ "$NOW_HOUR" -lt 18 ]; then
+            CCACHE_DATETIME="${DATE_STR}00"
+          else
+            CCACHE_DATETIME="${DATE_STR}18"
+          fi
+
+          echo "使用的 CCACHE_DATETIME: $CCACHE_DATETIME"
+          echo "CCACHE_DATETIME=$CCACHE_DATETIME" >> $GITHUB_OUTPUT
+
+      - name: 安装环境依赖
+        run: |
+          sudo apt update -qq
+          sudo apt install -y --no-install-recommends \
+            python3 git curl ccache libelf-dev \
+            build-essential flex bison libssl-dev \
+            libncurses-dev liblz4-tool zlib1g-dev \
+            libxml2-utils rsync unzip
+
+      - name: 载入 ccache 缓存
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ccache-susfs-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_DATETIME }}
+          restore-keys: |
+            ccache-susfs-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_DATETIME }}-
+
+      - name: 初始化 cceche
+        run: |
+          INIT_FLAG="$CCACHE_DIR/.ccache_initialized"
+          if command -v ccache >/dev/null 2>&1; then
+            if [ ! -f "$INIT_FLAG" ]; then
+              echo "init ccache ($CCACHE_DIR)..."
+              mkdir -p "$CCACHE_DIR"
+              ccache -M "$CCACHE_MAXSIZE"
+              touch "$INIT_FLAG"
+            fi
+          fi
+
+      - name: 同步内核源码
+        run: |
+          mkdir -p ./git-repo
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
+          chmod a+rx ./git-repo/repo
+          mkdir -p "$CONFIG"
+          cd "$CONFIG"
+          $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 --u $GOOGLE_SOURCE_URL/kernel/manifest -b common-android14-6.1-lts --repo-rev=v2.16
+          $GITHUB_WORKSPACE/./git-repo/repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
+
+      - name: 下载 Clang 22
+        run: |
+          CLANG_LINK=$(curl -sL https://raw.githubusercontent.com/ZyCromerZ/Clang/main/Clang-main-link.txt)
+          curl -L -o clang-22.tar.gz "$CLANG_LINK"
+
+          # 解压并清理
+          echo "Unzip clang-22"
+          sudo mkdir -p $GITHUB_WORKSPACE/clang-22
+          sudo tar -xzf clang-22.tar.gz -C $GITHUB_WORKSPACE/clang-22
+          sudo rm -f clang-22.tar.gz
+      
+      - name: 添加 SukiSU
+        run: |
+          echo "开始安装 SukiSU Ultra..."
+          cd "$CONFIG"
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+
+      - name: 应用内核补丁
+        run: |
+          cd "$CONFIG"
+          # Copy SUSFS patches
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
+          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
+          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
+
+          # 应用 SUSFS 补丁
+          cd ./common
+          patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
+          echo "SukiSU Ultra & SUSFS patches complete......"
+
+          # 应用 LTS 分支补丁
+          sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/kernel-common/* ./
+          echo "6.1-lts patches complete..."
+          
+          # Unicode 零宽绕过修复与内存优化
+          patch -p1 --forward < "../../kernel-patch/patches/optimized_mem_operations.patch"
+          patch -p1 --forward < "../../kernel-patch/patches/file_struct_8bytes_align.patch"
+          patch -p1 --forward < "../../kernel-patch/patches/reduce_cache_pressure.patch"
+          cat "../../kernel-patch/patches/clear_page_16bytes_align.patch" | sed -e 's/SYM_FUNC_START_PI(clear_page)/SYM_FUNC_START_PI(__pi_clear_page)/' | patch -p1 -F3 --forward
+          echo "Unicode patches complete..."
+          patch -p1 --forward < "../../kernel-patch/patches/unicode_bypass_fix_6.1+.patch"
+
+      - name: 防格机补丁
+        run: |
+          cd "$CONFIG"
+          echo "Adding BBG..."
+          wget -O- https://github.com/vc-teahouse/Baseband-guard/raw/main/setup.sh | bash
+
+          # Before sed: Show the original LSM default line for comparison
+          echo "=== Before sed ==="
+          sed -n '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ p }' common/security/Kconfig
+          
+          # Apply the sed command to add baseband_guard to default security configurations
+          sed -i '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ { /baseband_guard/! s/lockdown/lockdown,baseband_guard/ } }' common/security/Kconfig
+          
+          # After sed: Show the updated LSM default line
+          echo "=== After sed ==="
+          sed -n '/^config LSM$/,/^help$/{ /^[[:space:]]*default/ p }' common/security/Kconfig
+          
+          # Confirm baseband_guard is now present (should output the line if successful)
+          echo "=== Confirmation: grep for baseband_guard ==="
+          if ! grep -q "baseband_guard" common/security/Kconfig; then
+            echo "ERROR: baseband_guard not found after sed - stopping workflow"
+            exit 1
+          else
+            echo "SUCCESS: baseband_guard found in security configuration"
+            grep "baseband_guard" common/security/Kconfig
+          fi
+
+      - name: 添加内核配置
+        run: |
+          CONFIG_FILE="$CONFIG/common/arch/arm64/configs/gki_defconfig"
+          
+          echo "Add BBG configuration settings..."
+          echo "CONFIG_BBG=y" >> "$CONFIG_FILE"
+
+          echo "Add KSU configuration settings..."
+          echo "CONFIG_KSU=y" >> "$CONFIG_FILE"
+
+          echo "Add additional tmpfs config settings..."
+          echo "CONFIG_TMPFS_XATTR=y" >> "$CONFIG_FILE"
+          echo "CONFIG_TMPFS_POSIX_ACL=y" >> "$CONFIG_FILE"
+
+          echo "Add SUSFS configuration settings..."
+          echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
+
+          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MAP=n" >> "$CONFIG_FILE"
+
+          echo "Remove check_defconfig..."
+          sed -i 's/check_defconfig//' $CONFIG/common/build.config.gki
+
+      - name: 设置内核信息
+        run: |
+          cd "$CONFIG"
+          SUBLEVEL=$(awk -F' = ' '/^SUBLEVEL / {print $2}' ./common/Makefile)
+          if [ ! -z "${{ github.event.inputs.version }}" ]; then
+            echo "目标内核版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ github.event.inputs.version }}"
+            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH-${{ github.event.inputs.version }}" >> $GITHUB_ENV
+            sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}"'-'"${{ github.event.inputs.version }}"'"|' ./common/scripts/setlocalversion
+          else
+            echo "未配置内核版本号,将使用默认版本号:6.1.$SUBLEVEL-android14-11-g$BOOTHASH-lz"
+            echo "BOOTNAME=6.1.$SUBLEVEL-android14-11-g$BOOTHASH-lz" >> $GITHUB_ENV
+            sed -i '$s|echo "\$res"|echo "-android14-11-g'"${BOOTHASH}-lz"'"|' ./common/scripts/setlocalversion
+          fi
+          
+          perl -pi -e 's/"\$\{LINUX_COMPILE_BY\}"/"\Q$ENV{KBUILD_BUILD_USER}\E"/g' ./common/scripts/mkcompile_h
+          perl -pi -e 's/"\$\{LINUX_COMPILE_HOST\}"/"\Q$ENV{KBUILD_BUILD_HOST}\E"/g' ./common/scripts/mkcompile_h
+          echo "设置内核构建用户及主机:$KBUILD_BUILD_USER@$KBUILD_BUILD_HOST"
+
+          TIMESTAMP_ESCAPED=$(echo "$TIMESTAMP" | sed 's|/|\\/|g; s| |\\ |g')
+          sed -i "s|\$(build-timestamp)|${TIMESTAMP_ESCAPED}|g" ./common/init/Makefile
+          echo "设置内核构建时间:$TIMESTAMP"
+
+          sed -i '/^[[:space:]]*"protected_exports_list"[[:space:]]*:[[:space:]]*"android\/abi_gki_protected_exports_aarch64",$/d' ./common/BUILD.bazel
+          rm -rf ./common/android/abi_gki_protected_exports_*
+          sed -i "/stable_scmversion_cmd/s/-maybe-dirty//g" ./build/kernel/kleaf/impl/stamp.bzl
+          sed -E -i '/^CONFIG_LOCALVERSION=/ s/(.*)"$/\1"/' ./common/arch/arm64/configs/gki_defconfig
+
+      - name: 编译内核
+        uses: nick-fields/retry@v3
+        with:
+          timeout_minutes: 35
+          max_attempts: 3
+          retry_on: timeout
+          command: |
+            set -e
+            cd "$CONFIG"
+            sed -i 's/BUILD_SYSTEM_DLKM=1/BUILD_SYSTEM_DLKM=0/' common/build.config.gki.aarch64
+            sed -i '/MODULES_ORDER=android\/gki_aarch64_modules/d' common/build.config.gki.aarch64
+            sed -i '/KMI_SYMBOL_LIST_STRICT_MODE/d' common/build.config.gki.aarch64
+            sed -i 's/-dirty//' common/scripts/setlocalversion
+            cd common
+            
+            # 使用 ZyC Clang 22 编译
+            export PATH="$GITHUB_WORKSPACE/clang-22/bin:$PATH"
+            
+            # 使用 ccache 缓存加速编译
+            export PATH="/usr/lib/ccache:$PATH"
+            export CCACHE_COMPILERCHECK="%compiler% -dumpmachine; %compiler% -dumpversion"
+            export CCACHE_NOHASHDIR="true"
+            export CCACHE_HARDLINK="true"
+            export CCACHE_DIR="${{ env.CCACHE_DIR }}"
+            export CCACHE_MAXSIZE="8G"
+
+            COMMON_MAKE_PARAMS=(
+              -j$(nproc --all)
+              O=out
+              ARCH=arm64
+              LLVM=1
+              CROSS_COMPILE=aarch64-linux-gnu-
+              CC="ccache clang"
+              RUSTC=../../prebuilts/rust/linux-x86/1.73.0b/bin/rustc
+              PAHOLE=../../prebuilts/kernel-build-tools/linux-x86/bin/pahole
+              LD=ld.lld
+              HOSTLD=ld.lld
+              CONFIG_LTO_CLANG=y
+              CONFIG_LTO_CLANG_THIN=y
+              KCFLAGS+=-O2
+            )
+  
+            make "${COMMON_MAKE_PARAMS[@]}" gki_defconfig || { echo "make defconfig failed"; exit 1; }
+            make "${COMMON_MAKE_PARAMS[@]}" "${BUILD_TARGETS[@]}" || { echo "make failed"; exit 1; }
+      
+      - name: 打包编译产物
+        run: |
+          echo "正在打包编译产物..."
+          cp ./$CONFIG/common/out/arch/arm64/boot/Image ./AnyKernel3/
+          cd ./AnyKernel3
+          zip -r "../$BOOTNAME.zip" ./*
+
+      - name: 上传产出文件
+        uses: actions/upload-artifact@v4
+        with:
+          name: SukiSU-kernel-${{ env.CONFIG }}
+          path: |
+            *.zip
+
+  trigger-release:
+    runs-on: ubuntu-latest
+    needs:
+      - build-kernel
+    env:
+      REPO_NAME: 6.1-LTS-GKI-Kernel-Action
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_NAME: "GKI 6.1.LTS SukiSU"
+      RELEASE_BODY:
+    steps:
+      - name: 检查代码
+        uses: actions/checkout@v4
+
+      - name: 获取提交哈希值并生成提交URL
+        run: |
+          GITLAB_OWNER="simonpunk"
+          GITLAB_REPO="susfs4ksu"
+          
+          declare -A BRANCH_MAP=(
+            ["gki_android14_6_1"]="gki-android14-6.1"
+          )
+          
+          for var_name in "${!BRANCH_MAP[@]}"; do
+            branch_name="${BRANCH_MAP[$var_name]}"
+            COMMIT_HASH=$(git ls-remote https://gitlab.com/$GITLAB_OWNER/$GITLAB_REPO.git refs/heads/$branch_name | awk '{ print $1 }')
+            
+            if [[ -n "$COMMIT_HASH" ]]; then
+              COMMIT_URL="https://gitlab.com/$GITLAB_OWNER/$GITLAB_REPO/-/commit/$COMMIT_HASH"
+              echo "$branch_name Commit: $COMMIT_HASH"
+              echo "$branch_name Commit URL: $COMMIT_URL"
+              
+              echo "COMMIT_HASH_${var_name}=$COMMIT_HASH" >> "$GITHUB_ENV"
+              echo "COMMIT_URL_${var_name}=$COMMIT_URL" >> "$GITHUB_ENV"
+            fi
+          done
+
+          get_ref() {
+            local name="$1" repo="$2" path="$3" mode="$4"
+            if [[ "$mode" == "tag" ]]; then
+              ref=$(git ls-remote --tags --sort=-v:refname "$repo" | grep -o 'refs/tags/.*' | cut -d/ -f3 | head -n1)
+              url="https://github.com/$path/releases/tag/$ref"
+            else
+              ref=$(git ls-remote "$repo" HEAD | awk '{print $1}')
+              url="https://github.com/$path/commit/$ref"
+            fi
+            echo "SukiSU_REF=$ref" >> $GITHUB_ENV
+            echo "SukiSU_URL=$url" >> $GITHUB_ENV
+          }
+      
+          MODE="commit"
+          get_ref "SukiSU Ultra" "https://github.com/ShirkNeko/SukiSU-Ultra.git" "ShirkNeko/SukiSU-Ultra" "$MODE"
+
+      - name: 创建新标签
+        run: |
+            LATEST_TAG=$(gh api repos/${{ github.repository }}/tags --jq '.[0].name')
+            if [ -z "$LATEST_TAG" ]; then
+              LATEST_TAG="6.1-LTS-v0"
+            fi
+            
+            NEW_TAG=$(echo "$LATEST_TAG" | awk -F'-v' '{suffix=$2; if (!suffix) suffix=0; suffix++; printf "%s-v%d", $1, suffix}')
+    
+            echo "新标签: $NEW_TAG"
+            echo "NEW_TAG=${NEW_TAG}" >> $GITHUB_ENV
+
+            git tag $NEW_TAG
+            git push origin $NEW_TAG
+
+      - name: 下载附件
+        uses: actions/download-artifact@v4
+        with:
+          path: ./downloaded-artifacts
+
+      - name: 设置 Release 内容
+        run: |
+          cat << 'EOF' > release_body.md
+          
+          ### 功能:
+          -> SUSFS v2.0.0
+          -> Inline Hooks
+          -> BBG 内核防格机支持
+          -> LTS 分支小米系修复
+          -> 开启 -O2 编译优化
+          -> Zyc Clang22 编译
+      
+          ### 发布提交Hash:
+          -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
+          -> SUSFS(GKI-6.1):[${{ env.COMMIT_HASH_gki_android14_6_1 }}](${{ env.COMMIT_URL_gki_android14_6_1 }})
+          EOF
+
+      - name: 设置 Release 标题
+        run: |
+          git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git
+          cd SukiSU-Ultra
+          KSU_GIT_VERSION=$(git rev-list --count HEAD)
+          KSU_VERSION=$((40000 + KSU_GIT_VERSION - 2815))
+          echo $KSU_VERSION
+          echo "RELEASE_NAME=${{ env.RELEASE_NAME }}($KSU_VERSION)" >> $GITHUB_ENV
+
+      - name: 创建 GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.NEW_TAG }}
+          prerelease: false
+          files: ""
+          name: ${{ env.RELEASE_NAME }}
+          body_path: release_body.md
+
+      - name: 上传编译产出文件到 Release
+        run: |
+          for file in ./downloaded-artifacts/*-kernel-*/*; do
+            if [ -d "$file" ]; then
+              continue
+            fi
+            echo "Uploading $file..."
+            gh release upload ${{ env.NEW_TAG }} "$file"
+          done
+
+      - name: 显示上传的文件
+        run: |
+          echo "GitHub release created with the following files:"
+          ls ./downloaded-artifacts/**/*
