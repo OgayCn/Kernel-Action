@@ -122,7 +122,7 @@ jobs:
         run: |
           echo "开始安装 SukiSU Ultra..."
           cd "$CONFIG"
-          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s builtin
+          curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs_new
 
       - name: 应用内核补丁
         run: |
