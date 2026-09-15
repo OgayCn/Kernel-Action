@@ -103,20 +103,21 @@ jobs:
           curl https://storage.googleapis.com/git-repo-downloads/repo > ./git-repo/repo
           chmod a+rx ./git-repo/repo
           mkdir -p "$CONFIG"
+          echo "KERNEL_ROOT=$CONFIG" >> $GITHUB_ENV
           cd "$CONFIG"
           $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 -u $GOOGLE_SOURCE_URL/kernel/manifest -b common-android14-6.1-lts --repo-rev=v2.16
           $GITHUB_WORKSPACE/./git-repo/repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
 
-      - name: 下载 Clang 22
+      - name: 下载 Clang 23
         run: |
           CLANG_LINK=$(curl -sL https://raw.githubusercontent.com/ZyCromerZ/Clang/main/Clang-main-link.txt)
-          curl -L -o clang-22.tar.gz "$CLANG_LINK"
+          curl -L -o clang-23.tar.gz "$CLANG_LINK"
 
           # 解压并清理
-          echo "Unzip clang-22"
-          sudo mkdir -p $GITHUB_WORKSPACE/clang-22
-          sudo tar -xzf clang-22.tar.gz -C $GITHUB_WORKSPACE/clang-22
-          sudo rm -f clang-22.tar.gz
+          echo "Unzip clang-23"
+          sudo mkdir -p $GITHUB_WORKSPACE/clang-23
+          sudo tar -xzf clang-23.tar.gz -C $GITHUB_WORKSPACE/clang-23
+          sudo rm -f clang-23.tar.gz
       
       - name: 添加 SukiSU
         run: |
@@ -126,16 +127,7 @@ jobs:
 
       - name: 应用内核补丁
         run: |
-          cd "$CONFIG"
-          # Copy SUSFS patches
-          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-android14-6.1.patch ./common/
-          cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/
-          cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/
-
-          # 应用 SUSFS 补丁
-          cd ./common
-          patch -p1 < 50_add_susfs_in_gki-android14-6.1.patch || true
-          echo "SukiSU Ultra & SUSFS patches complete......"
+          cd "$CONFIG/common"
 
           # 应用 LTS 分支补丁
           sudo cp -rf $GITHUB_WORKSPACE/kernel-patch/kernel-common/* ./
@@ -148,6 +140,12 @@ jobs:
           cat "../../kernel-patch/patches/clear_page_16bytes_align.patch" | sed -e 's/SYM_FUNC_START_PI(clear_page)/SYM_FUNC_START_PI(__pi_clear_page)/' | patch -p1 -F3 --forward
           echo "Unicode patches complete..."
           patch -p1 --forward < "../../kernel-patch/patches/unicode_bypass_fix_6.1+.patch"
+
+      - name: 应用 SUSFS 补丁
+        if: inputs.enable_susfs
+        working-directory: ${{ env.KERNEL_ROOT }}
+        run: bash "$GITHUB_WORKSPACE/kernel-patch/susfs_fixes.sh"
+
 
       - name: 防格机补丁
         run: |
@@ -195,18 +193,13 @@ jobs:
           echo "CONFIG_KSU_SUSFS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_PATH=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SUS_KSTAT=y" >> "$CONFIG_FILE"
-
-          echo "CONFIG_KSU_SUSFS_TRY_UMOUNT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_UNAME=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_ENABLE_LOG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y" >> "$CONFIG_FILE"
           echo "CONFIG_KSU_SUSFS_OPEN_REDIRECT=y" >> "$CONFIG_FILE"
-          echo "CONFIG_KSU_SUSFS_SUS_MAP=n" >> "$CONFIG_FILE"
+          echo "CONFIG_KSU_SUSFS_SUS_MAP=y" >> "$CONFIG_FILE"
 
           echo "Remove check_defconfig..."
           sed -i 's/check_defconfig//' $CONFIG/common/build.config.gki
@@ -253,8 +246,8 @@ jobs:
             sed -i 's/-dirty//' common/scripts/setlocalversion
             cd common
             
-            # 使用 ZyC Clang 22 编译
-            export PATH="$GITHUB_WORKSPACE/clang-22/bin:$PATH"
+            # 使用 Clang 23 编译
+            export PATH="$GITHUB_WORKSPACE/clang-23/bin:$PATH"
             
             # 使用 ccache 缓存加速编译
             export PATH="/usr/lib/ccache:$PATH"
@@ -374,12 +367,12 @@ jobs:
           cat << 'EOF' > release_body.md
           
           ### 功能:
-          -> SUSFS v2.0.0
+          -> SUSFS v2.3.0
           -> Inline Hooks
           -> BBG 内核防格机支持
           -> LTS 分支小米系修复
           -> 开启 -O2 编译优化
-          -> Zyc Clang22 编译
+          -> Zyc Clang23 编译
       
           ### 发布提交Hash:
           -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
