@@ -142,7 +142,6 @@ jobs:
           patch -p1 --forward < "../../kernel-patch/patches/unicode_bypass_fix_6.1+.patch"
 
       - name: 应用 SUSFS 补丁
-        working-directory: ${{ env.KERNEL_ROOT }}
         run: bash "$GITHUB_WORKSPACE/kernel-patch/susfs_fixes.sh"
 
 
@@ -366,12 +365,12 @@ jobs:
           cat << 'EOF' > release_body.md
           
           ### 功能:
-          -> SUSFS v2.3.0
+          -> SUSFS v2.0.0
           -> Inline Hooks
           -> BBG 内核防格机支持
           -> LTS 分支小米系修复
           -> 开启 -O2 编译优化
-          -> Zyc Clang23 编译
+          -> Zyc Clang22 编译
       
           ### 发布提交Hash:
           -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
