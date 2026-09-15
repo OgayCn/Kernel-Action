@@ -334,7 +334,7 @@ jobs:
     env:
       REPO_NAME: 6.1-LTS-GKI-Kernel-Action
       GH_TOKEN: ${{ github.token }}
-      RELEASE_NAME: "GKI 6.1.LTS SukiSU"
+      RELEASE_NAME: "ReSukiSU GKI 6.1.LTS"
       RELEASE_BODY:
     steps:
       - name: 检查代码
@@ -413,7 +413,7 @@ jobs:
           -> Zyc Clang23 编译
       
           ### 发布提交Hash:
-          -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
+          -> ReSukiSU: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
           -> SUSFS(GKI-6.1):[${{ env.COMMIT_HASH_gki_android14_6_1 }}](${{ env.COMMIT_URL_gki_android14_6_1 }})
           EOF
 
