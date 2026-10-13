@@ -77,7 +77,7 @@ jobs:
             libxml2-utils rsync unzip
 
       - name: 载入 ccache 缓存
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-${{ runner.os }}-${{ github.ref }}-${{ steps.set-variable.outputs.CCACHE_DATETIME }}
@@ -106,21 +106,20 @@ jobs:
           $GITHUB_WORKSPACE/./git-repo/repo init --depth=1 -u $GOOGLE_SOURCE_URL/kernel/manifest -b common-android14-6.1-lts --repo-rev=v2.16
           $GITHUB_WORKSPACE/./git-repo/repo --trace sync -c -j$(nproc --all) --no-tags --fail-fast
 
-      - name: 下载 Clang 22
+      - name: 下载 Clang 23
         run: |
           CLANG_LINK=$(curl -sL https://raw.githubusercontent.com/ZyCromerZ/Clang/main/Clang-main-link.txt)
-          #curl -L -o clang-22.tar.gz "https://github.com/ZyCromerZ/Clang/releases/download/22.0.0git-20250716-release/Clang-22.0.0git-20250716.tar.gz"
-          curl -L -o clang-22.tar.gz "$CLANG_LINK"
+          curl -L -o clang-23.tar.gz "$CLANG_LINK"
 
           # 解压并清理
-          echo "Unzip clang-22"
-          sudo mkdir -p $GITHUB_WORKSPACE/clang-22
-          sudo tar -xzf clang-22.tar.gz -C $GITHUB_WORKSPACE/clang-22
-          sudo rm -f clang-22.tar.gz
+          echo "Unzip clang-23"
+          sudo mkdir -p $GITHUB_WORKSPACE/clang-23
+          sudo tar -xzf clang-23.tar.gz -C $GITHUB_WORKSPACE/clang-23
+          sudo rm -f clang-23.tar.gz
       
       - name: 添加 ReSukiSU
         run: |
-          echo "开始安装 SukiSU Ultra..."
+          echo "开始安装 ReSukiSU..."
           cd "$CONFIG"
           curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
 
@@ -166,6 +165,42 @@ jobs:
             echo "SUCCESS: baseband_guard found in security configuration"
             grep "baseband_guard" common/security/Kconfig
           fi
+
+      - name: 应用 Re-Kernel
+        run: |
+          cd "$CONFIG"
+          
+          set -e
+          echo "Integrating Re-Kernel..."
+          TMP_REKERNEL=/tmp/rekernel
+          rm -rf "$TMP_REKERNEL"
+          git clone --depth 1 https://github.com/Sakion-Team/Re-Kernel.git "$TMP_REKERNEL"
+
+          # 同步上游拆分后的完整驱动源码
+          rm -rf common/drivers/rekernel
+          mkdir -p common/drivers/rekernel
+          cp -a "$TMP_REKERNEL/LKM-Source/." common/drivers/rekernel/
+
+          # 将上游外置模块配置适配为内核内置驱动
+          REKERNEL_MAKEFILE="common/drivers/rekernel/Makefile"
+          sed -i 's/^obj-m := rekernel\.o$/obj-$(CONFIG_REKERNEL) += rekernel.o/' "$REKERNEL_MAKEFILE"
+          grep -qF 'ccflags-$(CONFIG_REKERNEL_LEGACY_NETLINK) += -DLEGACY_NETLINK' "$REKERNEL_MAKEFILE" || \
+            echo 'ccflags-$(CONFIG_REKERNEL_LEGACY_NETLINK) += -DLEGACY_NETLINK' >> "$REKERNEL_MAKEFILE"
+          sed -i '/^[[:space:]]*depends on MODULES[[:space:]]*$/d' common/drivers/rekernel/Kconfig
+
+          # 挂载到驱动树
+          if ! grep -qF 'source "drivers/rekernel/Kconfig"' common/drivers/Kconfig; then
+            sed -i '/^endmenu$/i source "drivers/rekernel/Kconfig"' common/drivers/Kconfig
+          fi
+          if ! grep -qF 'obj-$(CONFIG_REKERNEL) += rekernel/' common/drivers/Makefile; then
+            echo 'obj-$(CONFIG_REKERNEL) += rekernel/' >> common/drivers/Makefile
+          fi
+
+          # 修正头文件包含路径（适配 in-tree 编译）
+          sed -i 's|#include <../android/binder_internal.h>|#include "../android/binder_internal.h"|g' common/drivers/rekernel/rekernel_binder.c
+          # 补齐 5.10 binder_internal.h 使用 DEFINE_SHOW_ATTRIBUTE 所需的定义
+          grep -qF '#include <linux/seq_file.h>' common/drivers/rekernel/rekernel_binder.c || \
+            sed -i '/#include <linux\/kprobes.h>/a #include <linux/seq_file.h>' common/drivers/rekernel/rekernel_binder.c
 
       - name: 添加内核配置
         run: |
@@ -213,7 +248,7 @@ jobs:
           sed -E -i '/^CONFIG_LOCALVERSION=/ s/(.*)"$/\1"/' ./common/arch/arm64/configs/gki_defconfig
 
       - name: 编译内核
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 35
           max_attempts: 3
@@ -227,8 +262,8 @@ jobs:
             sed -i 's/-dirty//' common/scripts/setlocalversion
             cd common
             
-            # 使用 ZyC Clang 22 编译
-            export PATH="$GITHUB_WORKSPACE/clang-22/bin:$PATH"
+            # 使用 Clang 23 编译
+            export PATH="$GITHUB_WORKSPACE/clang-23/bin:$PATH"
             
             # 使用 ccache 缓存加速编译
             export PATH="/usr/lib/ccache:$PATH"
@@ -265,7 +300,7 @@ jobs:
           zip -r "../$BOOTNAME.zip" ./*
 
       - name: 上传产出文件
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: SukiSU-kernel-${{ env.CONFIG }}
           path: |
@@ -278,11 +313,11 @@ jobs:
     env:
       REPO_NAME: 6.1-LTS-GKI-Kernel-Action
       GH_TOKEN: ${{ github.token }}
-      RELEASE_NAME: "GKI 6.1.LTS SukiSU"
+      RELEASE_NAME: "ReSukiSU GKI 6.1.LTS"
       RELEASE_BODY:
     steps:
       - name: 检查代码
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: 获取提交哈希值并生成提交URL
         run: |
@@ -321,7 +356,7 @@ jobs:
           }
       
           MODE="commit"
-          get_ref "SukiSU Ultra" "https://github.com/ShirkNeko/SukiSU-Ultra.git" "ShirkNeko/SukiSU-Ultra" "$MODE"
+          get_ref "ReSukiSU" "https://github.com/ReSukiSU/ReSukiSU.git" "ReSukiSU" "$MODE"
 
       - name: 创建新标签
         run: |
@@ -349,22 +384,23 @@ jobs:
           
           ### 功能:
           -> Tp Hook 支持
+          -> ReKernel 支持
           -> Wireguard 支持
           -> BBG 内核防格机支持
           -> LTS 分支小米系修复
           -> 开启 -O2 编译优化
-          -> Zyc Clang22 编译
+          -> Zyc Clang23 编译
       
           ### 发布提交Hash:
-          -> SukiSU Ultra: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
+          -> ReSukiSU: [${{ env.SukiSU_REF }}](${{ env.SukiSU_REF }})
           EOF
 
       - name: 设置 Release 标题
         run: |
-          git clone https://github.com/SukiSU-Ultra/SukiSU-Ultra.git
-          cd SukiSU-Ultra
+          git clone https://github.com/ReSukiSU/ReSukiSU.git KernelSU
+          cd KernelSU
           KSU_GIT_VERSION=$(git rev-list --count HEAD)
-          KSU_VERSION=$((40000 + KSU_GIT_VERSION - 2815))
+          KSU_VERSION=$((30700 + KSU_GIT_VERSION))
           echo $KSU_VERSION
           echo "RELEASE_NAME=${{ env.RELEASE_NAME }}($KSU_VERSION)-NoSusfs" >> $GITHUB_ENV
 
