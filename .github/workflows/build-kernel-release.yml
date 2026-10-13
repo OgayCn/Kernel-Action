@@ -117,11 +117,11 @@ jobs:
           sudo tar -xzf clang-23.tar.gz -C $GITHUB_WORKSPACE/clang-23
           sudo rm -f clang-23.tar.gz
       
-      - name: 添加 ReSukiSU
+      - name: 添加 BakaSU
         run: |
-          echo "开始安装 ReSukiSU..."
+          echo "开始安装 BakaSU..."
           cd "$CONFIG"
-          curl -LSs "https://raw.githubusercontent.com/ReSukiSU/ReSukiSU/main/kernel/setup.sh" | bash -s main
+          curl -LSs "https://raw.githubusercontent.com/Baka-SU/BakaSU/main/kernel/setup.sh" | bash -s main
 
       - name: 应用内核补丁
         run: |
@@ -313,7 +313,7 @@ jobs:
     env:
       REPO_NAME: 6.1-LTS-GKI-Kernel-Action
       GH_TOKEN: ${{ github.token }}
-      RELEASE_NAME: "ReSukiSU GKI 6.1.LTS"
+      RELEASE_NAME: "BakaSU GKI 6.1.LTS"
       RELEASE_BODY:
     steps:
       - name: 检查代码
@@ -356,7 +356,7 @@ jobs:
           }
       
           MODE="commit"
-          get_ref "ReSukiSU" "https://github.com/ReSukiSU/ReSukiSU.git" "ReSukiSU" "$MODE"
+          get_ref "BakaSU" "https://github.com/Baka-SU/BakaSU.git" "BakaSU" "$MODE"
 
       - name: 创建新标签
         run: |
